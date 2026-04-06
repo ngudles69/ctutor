@@ -4,30 +4,152 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
-  <!-- SCREEN 1: Setup -->
-  <div id="screen-setup" class="screen active">
-    <div class="setup-container">
-      <h1>Character Practice</h1>
-      <p class="setup-instructions">Enter 10 Chinese characters for practice:</p>
-      <input type="text" id="char-input" maxlength="20"
-             placeholder="e.g. 你好世界我们学习中文"
-             inputmode="text" lang="zh" autocomplete="off">
-      <div id="char-count">0 / 10 characters</div>
-      <div id="char-preview" class="char-preview"></div>
-      <div id="char-error" class="error hidden"></div>
-      <button id="btn-start" class="btn-primary" disabled>Start</button>
+  <!-- Top Bar (visible on all screens except home) -->
+  <div id="top-bar" class="hidden">
+    <button id="btn-back" class="top-btn" aria-label="Back">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div id="top-title"></div>
+    <button id="btn-mode-switch" class="top-btn" aria-label="Switch mode">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <!-- SCREEN: Home (mode select) -->
+  <div id="screen-home" class="screen active">
+    <div class="home-container">
+      <h1 class="app-logo">Character Tutor</h1>
+      <p class="home-subtitle">Learn to write Chinese characters</p>
+      <div class="home-buttons">
+        <button id="btn-enter-learner" class="mode-btn learner-btn">
+          <span class="mode-icon">&#x1F393;</span>
+          <span class="mode-label">Learner</span>
+        </button>
+        <button id="btn-enter-parent" class="mode-btn parent-btn">
+          <span class="mode-icon">&#x1F4DD;</span>
+          <span class="mode-label">Parent / Teacher</span>
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- SCREEN 2: Practice -->
+  <!-- SCREEN: PIN Entry -->
+  <div id="screen-pin" class="screen hidden">
+    <div class="pin-container">
+      <h2>Enter PIN</h2>
+      <input type="password" id="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="----" autocomplete="off">
+      <div id="pin-error" class="error hidden"></div>
+      <button id="btn-pin-submit" class="btn-primary">Enter</button>
+      <button id="btn-pin-cancel" class="btn-link">Cancel</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: Learner Dashboard -->
+  <div id="screen-learner" class="screen hidden">
+    <div class="learner-dashboard">
+      <div id="balance-card" class="balance-card">
+        <div class="balance-label">TV / Games Time</div>
+        <div id="balance-amount" class="balance-amount">0 min</div>
+      </div>
+      <h3 class="section-heading">Your Lessons</h3>
+      <div id="lesson-list-learner" class="lesson-list"></div>
+      <div id="no-lessons-learner" class="empty-state hidden">
+        <p>No lessons yet! Ask your parent or teacher to add some.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Parent Dashboard -->
+  <div id="screen-parent" class="screen hidden">
+    <div class="parent-dashboard">
+      <div class="parent-stats">
+        <div class="stat-item">
+          <div id="stat-lessons" class="stat-value">0</div>
+          <div class="stat-label">Lessons</div>
+        </div>
+        <div class="stat-item">
+          <div id="stat-unclaimed" class="stat-value">0 min</div>
+          <div class="stat-label">Unclaimed</div>
+        </div>
+        <div class="stat-item">
+          <div id="stat-total" class="stat-value">0 min</div>
+          <div class="stat-label">Total Earned</div>
+        </div>
+      </div>
+      <div class="parent-actions">
+        <button id="btn-add-lesson" class="btn-primary">+ Add Lesson</button>
+        <button id="btn-change-pin" class="btn-link">Change PIN</button>
+      </div>
+      <h3 class="section-heading">Lessons</h3>
+      <div id="lesson-list-parent" class="lesson-list"></div>
+      <div id="no-lessons-parent" class="empty-state hidden">
+        <p>No lessons yet. Tap "Add Lesson" to create one.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Create / Edit Lesson -->
+  <div id="screen-create-lesson" class="screen hidden">
+    <div class="form-container">
+      <label class="form-label" for="lesson-name-input">Lesson Name</label>
+      <input type="text" id="lesson-name-input" placeholder="e.g. Family Members" autocomplete="off">
+      <label class="form-label" for="lesson-chars-input">Characters (1-10)</label>
+      <input type="text" id="lesson-chars-input" maxlength="20" placeholder="e.g. 爸妈哥姐弟" inputmode="text" lang="zh" autocomplete="off">
+      <div id="lesson-char-count" class="char-count">0 / 10 characters</div>
+      <div id="lesson-char-preview" class="char-preview"></div>
+      <div id="lesson-error" class="error hidden"></div>
+      <div class="form-buttons">
+        <button id="btn-save-lesson" class="btn-primary" disabled>Save Lesson</button>
+        <button id="btn-cancel-lesson" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Lesson Review (Parent) -->
+  <div id="screen-lesson-review" class="screen hidden">
+    <div class="review-container">
+      <div id="review-header" class="review-header">
+        <div id="review-name" class="review-name"></div>
+        <div id="review-chars" class="review-chars"></div>
+      </div>
+      <h3 class="section-heading">Completions</h3>
+      <div id="review-completions" class="completions-list"></div>
+      <div id="no-completions" class="empty-state hidden">
+        <p>Not completed yet.</p>
+      </div>
+      <div class="review-actions">
+        <button id="btn-edit-lesson" class="btn-secondary">Edit Lesson</button>
+        <button id="btn-delete-lesson" class="btn-danger">Delete Lesson</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Change PIN -->
+  <div id="screen-change-pin" class="screen hidden">
+    <div class="form-container">
+      <label class="form-label" for="current-pin-input">Current PIN</label>
+      <input type="password" id="current-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <label class="form-label" for="new-pin-input">New PIN</label>
+      <input type="password" id="new-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <label class="form-label" for="confirm-pin-input">Confirm New PIN</label>
+      <input type="password" id="confirm-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <div id="pin-change-error" class="error hidden"></div>
+      <div class="form-buttons">
+        <button id="btn-save-pin" class="btn-primary">Save PIN</button>
+        <button id="btn-cancel-pin" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Practice -->
   <div id="screen-practice" class="screen hidden">
     <div id="practice-top">
       <div id="practice-info-left">
-        <div id="score-display">0 / 10</div>
+        <div id="score-display">0 / 0</div>
         <div id="char-index-display">Character 1</div>
       </div>
       <div id="ref-char-section">
@@ -39,29 +161,21 @@
           <div id="meaning-display"></div>
         </div>
         <button id="btn-speak" class="btn-speak" aria-label="Speak character">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-          </svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         </button>
       </div>
       <div id="practice-info-right">
         <div id="attempt-display">Trace 1/3</div>
       </div>
     </div>
-
     <div id="practice-bottom">
       <div id="quiz-writer-target"></div>
       <div id="feedback-overlay" class="hidden"></div>
     </div>
-
     <div id="practice-controls">
       <button id="btn-restart" class="btn-secondary">Restart Trace</button>
       <button id="btn-animate" class="btn-secondary">Show Strokes</button>
     </div>
-
-    <!-- Fail dialog -->
     <div id="fail-dialog" class="dialog hidden">
       <div class="dialog-content">
         <p>Not quite right! Try again?</p>
@@ -69,33 +183,28 @@
         <button id="btn-retry-unguided" class="btn-secondary">Try without guide</button>
       </div>
     </div>
-
-    <!-- Success overlay -->
     <div id="success-overlay" class="overlay hidden">
       <div class="overlay-text"></div>
     </div>
   </div>
 
-  <!-- SCREEN 3: Reward -->
+  <!-- SCREEN: Reward -->
   <div id="screen-reward" class="screen hidden">
     <div class="reward-container">
       <div id="confetti-container"></div>
-      <h1 id="reward-title">Great Job!</h1>
+      <h1>Great Job!</h1>
       <div id="tv-time-display" class="tv-time"></div>
       <div id="tv-time-total" class="tv-total"></div>
-      <div id="cycle-info"></div>
-      <button id="btn-play-again" class="btn-primary">Play Again</button>
+      <button id="btn-back-to-lessons" class="btn-primary">Back to Lessons</button>
     </div>
   </div>
 
   <!-- Landscape warning -->
   <div id="landscape-warning" class="landscape-overlay">
-    <div class="landscape-msg">
-      <p>Please rotate your device to portrait mode</p>
-    </div>
+    <div class="landscape-msg"><p>Please rotate your device to portrait mode</p></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
