@@ -141,13 +141,13 @@ function numPinyinToTone(s) {
 }
 
 function formatPinyin(pinyinArr) {
-  return pinyinArr.map(numPinyinToTone).join(' ');
+  if (!pinyinArr.length) return '—';
+  return numPinyinToTone(pinyinArr[0]);
 }
 
 function formatMeaning(definitions) {
-  const allDefs = Object.values(definitions).join('');
-  // Take first 2 meanings, clean up trailing semicolons
-  const parts = allDefs.split(/;\s*/).filter(Boolean);
+  const firstDef = Object.values(definitions)[0] || '';
+  const parts = firstDef.split(/;\s*/).filter(Boolean);
   return parts.slice(0, 2).join('; ');
 }
 
