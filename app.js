@@ -245,6 +245,8 @@ function init() {
   // Practice
   els.btnRestart.addEventListener('click', restartCurrentTrace);
   els.btnAnimate.addEventListener('click', showAnimation);
+  els.btnGuided = $('btn-guided');
+  els.btnGuided.addEventListener('click', switchToGuided);
   els.btnSpeak.addEventListener('click', speakCurrentChar);
   els.btnRetryGuided.addEventListener('click', retryGuided);
   els.btnRetryUnguided.addEventListener('click', retryUnguided);
@@ -668,13 +670,16 @@ function updatePracticeUI() {
   els.scoreDisplay.textContent = state.score + ' / ' + total;
   els.charIndexDisplay.textContent = 'Character ' + (state.currentCharIndex + 1);
 
-  if (state.attemptNum <= GUIDED_ATTEMPTS) {
+  const isGuided = state.attemptNum <= GUIDED_ATTEMPTS;
+  if (isGuided) {
     els.attemptDisplay.textContent = 'Trace ' + state.attemptNum + '/' + GUIDED_ATTEMPTS;
     els.attemptDisplay.style.color = '#4a90d9';
   } else {
     els.attemptDisplay.textContent = 'Free trace!';
     els.attemptDisplay.style.color = '#e67e22';
   }
+  // Show "Guided Trace" button only during free trace
+  els.btnGuided.classList.toggle('hidden', isGuided);
 }
 
 // === Quiz Callbacks ===
@@ -767,6 +772,13 @@ function retryGuided() {
 function retryUnguided() {
   els.failDialog.classList.add('hidden');
   state.attemptNum = TOTAL_ATTEMPTS;
+  updatePracticeUI();
+  createQuizWriter(state.characters[state.currentCharIndex]);
+}
+
+function switchToGuided() {
+  if (state.isAnimating) return;
+  state.attemptNum = 1;
   updatePracticeUI();
   createQuizWriter(state.characters[state.currentCharIndex]);
 }
