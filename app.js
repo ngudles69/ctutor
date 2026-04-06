@@ -766,8 +766,8 @@ function completeLessonCycle() {
 
 function retryGuided() {
   els.failDialog.classList.add('hidden');
-  state.guidedTotal = GUIDED_ATTEMPTS;
-  state.attemptNum = 1;
+  state.guidedTotal++;
+  state.attemptNum = state.guidedTotal;
   updatePracticeUI();
   createQuizWriter(state.characters[state.currentCharIndex]);
 }
