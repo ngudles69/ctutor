@@ -447,8 +447,8 @@ function renderPhraseWriters() {
 
     const writer = HanziWriter.create(wrapper, phrase[i], {
       width: 36, height: 36, padding: 2,
-      strokeColor: '#333', outlineColor: 'transparent',
-      strokeAnimationSpeed: 0, delayBetweenStrokes: 0,
+      strokeColor: '#333', outlineColor: '#ddd',
+      showCharacter: true, showOutline: true,
     });
     state.phraseWriters.push(writer);
   }
