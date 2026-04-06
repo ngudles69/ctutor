@@ -111,7 +111,7 @@ const state = {
   // Tingxie per-phrase tracking
   tingxieCharResults: [],  // boolean per char: true=correct
   // Writers
-  refWriter: null, quizWriter: null,
+  refWriter: null, quizWriter: null, phraseWriters: [],
   dictCache: {},
   // Edit
   editingLessonId: null,
@@ -424,8 +424,41 @@ function startPhrase() {
   state.isAnimating = false;
 
   destroyWriters();
+  renderPhraseWriters();
   updatePracticeUI();
   startCharacter();
+}
+
+function renderPhraseWriters() {
+  const sec = getCurrentSection();
+  const phrase = getCurrentPhrase();
+
+  // Clear old phrase writers
+  state.phraseWriters = [];
+  els.phraseCharsDisplay.innerHTML = '';
+
+  if (!sec.showRef) return;
+
+  for (let i = 0; i < phrase.length; i++) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'phrase-char-hw' + (i === state.currentCharIdx ? ' active' : '');
+    wrapper.dataset.idx = i;
+    els.phraseCharsDisplay.appendChild(wrapper);
+
+    const writer = HanziWriter.create(wrapper, phrase[i], {
+      width: 36, height: 36, padding: 2,
+      strokeColor: '#333', outlineColor: 'transparent',
+      strokeAnimationSpeed: 0, delayBetweenStrokes: 0,
+    });
+    state.phraseWriters.push(writer);
+  }
+}
+
+function updatePhraseHighlight() {
+  const wrappers = els.phraseCharsDisplay.querySelectorAll('.phrase-char-hw');
+  wrappers.forEach((w, i) => {
+    w.classList.toggle('active', i === state.currentCharIdx);
+  });
 }
 
 function startCharacter() {
@@ -653,16 +686,8 @@ function updatePracticeUI() {
   els.phraseProgress.textContent = 'Phrase ' + (state.phraseOrderIdx + 1) + '/' + state.phrases.length;
   els.practiceScore.textContent = calcTotalScore() + ' pts';
 
-  // Render phrase characters: current char black, others grey (hidden in tingxie)
-  els.phraseCharsDisplay.innerHTML = '';
-  if (sec.showRef) {
-    for (let i = 0; i < phrase.length; i++) {
-      const span = document.createElement('span');
-      span.className = 'phrase-char' + (i === state.currentCharIdx ? ' active' : '');
-      span.textContent = phrase[i];
-      els.phraseCharsDisplay.appendChild(span);
-    }
-  }
+  // Highlight active character in phrase bar (writers created in renderPhraseWriters)
+  updatePhraseHighlight();
 
   // Progress info
   if (sec.id === 'guided') {
@@ -792,6 +817,7 @@ async function speakText(text) {
 function destroyWriters() {
   if (state.refWriter) { els.refWriterTarget.innerHTML=''; state.refWriter=null; }
   els.quizWriterTarget.innerHTML=''; state.quizWriter=null;
+  state.phraseWriters = [];
 }
 function flashFeedback(color) {
   const o=els.feedbackOverlay; o.classList.remove('hidden','flash-red','flash-green');
