@@ -155,14 +155,18 @@ async function fetchDictData(chars) {
   const promises = chars.map(async (ch) => {
     if (state.dictCache[ch]) return;
     try {
-      const res = await fetch(CEDICT_URL + encodeURIComponent(ch) + '.json');
-      if (!res.ok) throw new Error('not found');
+      const url = CEDICT_URL + encodeURIComponent(ch) + '.json';
+      console.log('[dict] fetching:', url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       state.dictCache[ch] = {
         pinyin: formatPinyin(data.pinyin || []),
         meaning: formatMeaning(data.definitions || {}),
       };
+      console.log('[dict]', ch, '->', state.dictCache[ch]);
     } catch (e) {
+      console.error('[dict] failed for', ch, e);
       state.dictCache[ch] = { pinyin: '—', meaning: '—' };
     }
   });
@@ -177,13 +181,44 @@ function updateCharDetails() {
 }
 
 // === Speech ===
-function speakCurrentChar() {
+let voicesLoaded = false;
+
+function ensureVoicesLoaded() {
+  return new Promise((resolve) => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      voicesLoaded = true;
+      resolve(voices);
+      return;
+    }
+    speechSynthesis.addEventListener('voiceschanged', () => {
+      voicesLoaded = true;
+      resolve(speechSynthesis.getVoices());
+    }, { once: true });
+  });
+}
+
+async function speakCurrentChar() {
   const char = state.characters[state.currentCharIndex];
   if (!('speechSynthesis' in window)) return;
+
   speechSynthesis.cancel();
+
+  if (!voicesLoaded) {
+    await ensureVoicesLoaded();
+  }
+
   const utterance = new SpeechSynthesisUtterance(char);
   utterance.lang = 'zh-CN';
   utterance.rate = 0.8;
+
+  // Try to find a Chinese voice explicitly
+  const voices = speechSynthesis.getVoices();
+  const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+  if (zhVoice) {
+    utterance.voice = zhVoice;
+  }
+
   speechSynthesis.speak(utterance);
 }
 
