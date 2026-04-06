@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -137,10 +137,10 @@
     <!-- Section tabs -->
     <div id="section-tabs"></div>
 
-    <!-- Phrase info bar -->
+    <!-- Phrase info bar: progress left, phrase center, score right -->
     <div id="phrase-bar">
-      <span id="phrase-text-display"></span>
       <span id="phrase-progress"></span>
+      <div id="phrase-chars-display"></div>
       <span id="practice-score"></span>
     </div>
 
@@ -166,10 +166,9 @@
       <div class="tingxie-hint">Tap to listen</div>
     </div>
 
-    <!-- Round / char progress -->
+    <!-- Round progress -->
     <div id="progress-info">
       <span id="attempt-display"></span>
-      <span id="char-progress-display"></span>
     </div>
 
     <!-- Tracing area -->
@@ -218,6 +217,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

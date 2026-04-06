@@ -139,13 +139,13 @@ const els = {
   currentPinInput:$('current-pin-input'), newPinInput:$('new-pin-input'), confirmPinInput:$('confirm-pin-input'),
   pinChangeError:$('pin-change-error'), btnSavePin:$('btn-save-pin'), btnCancelPin:$('btn-cancel-pin'),
   // Practice
-  sectionTabs:$('section-tabs'), phraseTextDisplay:$('phrase-text-display'),
+  sectionTabs:$('section-tabs'), phraseCharsDisplay:$('phrase-chars-display'),
   phraseProgress:$('phrase-progress'), practiceScore:$('practice-score'),
   refArea:$('ref-area'), tingxieArea:$('tingxie-area'), btnSpeakPhrase:$('btn-speak-phrase'),
   refCharContainer:$('ref-char-container'), refWriterTarget:$('ref-writer-target'),
   refInfo:$('ref-info'), pinyinDisplay:$('pinyin-display'), meaningDisplay:$('meaning-display'),
   btnSpeak:$('btn-speak'), progressInfo:$('progress-info'),
-  attemptDisplay:$('attempt-display'), charProgressDisplay:$('char-progress-display'),
+  attemptDisplay:$('attempt-display'),
   quizWriterTarget:$('quiz-writer-target'), feedbackOverlay:$('feedback-overlay'),
   practiceControls:$('practice-controls'),
   btnRestart:$('btn-restart'), btnGuided:$('btn-guided'), btnAnimate:$('btn-animate'), btnSkip:$('btn-skip'),
@@ -649,14 +649,20 @@ function updatePracticeUI() {
   const phrase = getCurrentPhrase();
   const pi = getCurrentPhraseIdx();
 
-  // Phrase bar
-  if (sec.showRef) {
-    els.phraseTextDisplay.textContent = phrase;
-  } else {
-    els.phraseTextDisplay.textContent = '';
-  }
+  // Phrase bar — left: progress, center: phrase chars, right: score
   els.phraseProgress.textContent = 'Phrase ' + (state.phraseOrderIdx + 1) + '/' + state.phrases.length;
   els.practiceScore.textContent = calcTotalScore() + ' pts';
+
+  // Render phrase characters: current char black, others grey (hidden in tingxie)
+  els.phraseCharsDisplay.innerHTML = '';
+  if (sec.showRef) {
+    for (let i = 0; i < phrase.length; i++) {
+      const span = document.createElement('span');
+      span.className = 'phrase-char' + (i === state.currentCharIdx ? ' active' : '');
+      span.textContent = phrase[i];
+      els.phraseCharsDisplay.appendChild(span);
+    }
+  }
 
   // Progress info
   if (sec.id === 'guided') {
@@ -667,7 +673,6 @@ function updatePracticeUI() {
   } else {
     els.attemptDisplay.textContent = '';
   }
-  els.charProgressDisplay.textContent = 'Char ' + (state.currentCharIdx + 1) + '/' + phrase.length;
 
   // Show guided button only in free trace when not already guided
   if (sec.id === 'free') {
