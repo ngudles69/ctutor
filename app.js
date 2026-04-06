@@ -6,6 +6,7 @@ const REQUIRED_CHARS = 10;
 const TV_REWARDS = [30, 20, 10]; // minutes per cycle (index 2+ = 10)
 
 const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+const CEDICT_URL = 'https://cdn.jsdelivr.net/gh/krmanik/cedict-json/v2/';
 
 // === State ===
 const state = {
@@ -22,6 +23,7 @@ const state = {
   quizWriter: null,
   currentScreen: 'setup',
   isAnimating: false,
+  dictCache: {},  // char -> { pinyin, meaning }
 };
 
 // === DOM References ===
@@ -47,6 +49,9 @@ const els = {
   btnRetryGuided: $('btn-retry-guided'),
   btnRetryUnguided: $('btn-retry-unguided'),
   successOverlay: $('success-overlay'),
+  pinyinDisplay: $('pinyin-display'),
+  meaningDisplay: $('meaning-display'),
+  btnSpeak: $('btn-speak'),
   // Reward
   rewardTitle: $('reward-title'),
   tvTimeDisplay: $('tv-time-display'),
@@ -67,6 +72,7 @@ function init() {
   els.btnRetryGuided.addEventListener('click', retryGuided);
   els.btnRetryUnguided.addEventListener('click', retryUnguided);
   els.btnPlayAgain.addEventListener('click', startNewCycle);
+  els.btnSpeak.addEventListener('click', speakCurrentChar);
 
   // Prevent zoom on double tap for iOS
   document.addEventListener('dblclick', (e) => e.preventDefault());
@@ -97,6 +103,88 @@ function saveProgress() {
   } catch (e) {
     // Ignore if localStorage unavailable
   }
+}
+
+// === Dictionary & Pinyin ===
+function numPinyinToTone(s) {
+  const tones = {
+    a: '\u0101\u00e1\u01ce\u00e0a',
+    e: '\u0113\u00e9\u011b\u00e8e',
+    i: '\u012b\u00ed\u01d0\u00eci',
+    o: '\u014d\u00f3\u01d2\u00f2o',
+    u: '\u016b\u00fa\u01d4\u00f9u',
+    v: '\u01d6\u01d8\u01da\u01dcu\u0308',
+  };
+
+  const match = s.match(/^([a-z\u00fc]+)(\d)$/i);
+  if (!match) return s;
+
+  let syl = match[1].toLowerCase().replace(/\u00fc/g, 'v');
+  const tone = parseInt(match[2]);
+  if (tone < 1 || tone > 5) return s;
+
+  // Find vowel to place tone mark on
+  let idx = -1;
+  if (syl.includes('a')) idx = syl.indexOf('a');
+  else if (syl.includes('e')) idx = syl.indexOf('e');
+  else if (syl.includes('ou')) idx = syl.indexOf('o');
+  else {
+    for (let i = syl.length - 1; i >= 0; i--) {
+      if ('aeiouv'.includes(syl[i])) { idx = i; break; }
+    }
+  }
+
+  if (idx === -1) return syl;
+  const vowel = syl[idx];
+  const toned = tones[vowel][tone - 1];
+  return syl.substring(0, idx) + toned + syl.substring(idx + 1);
+}
+
+function formatPinyin(pinyinArr) {
+  return pinyinArr.map(numPinyinToTone).join(' ');
+}
+
+function formatMeaning(definitions) {
+  const allDefs = Object.values(definitions).join('');
+  // Take first 2 meanings, clean up trailing semicolons
+  const parts = allDefs.split(/;\s*/).filter(Boolean);
+  return parts.slice(0, 2).join('; ');
+}
+
+async function fetchDictData(chars) {
+  const promises = chars.map(async (ch) => {
+    if (state.dictCache[ch]) return;
+    try {
+      const res = await fetch(CEDICT_URL + encodeURIComponent(ch) + '.json');
+      if (!res.ok) throw new Error('not found');
+      const data = await res.json();
+      state.dictCache[ch] = {
+        pinyin: formatPinyin(data.pinyin || []),
+        meaning: formatMeaning(data.definitions || {}),
+      };
+    } catch (e) {
+      state.dictCache[ch] = { pinyin: '—', meaning: '—' };
+    }
+  });
+  await Promise.all(promises);
+}
+
+function updateCharDetails() {
+  const char = state.characters[state.currentCharIndex];
+  const info = state.dictCache[char] || { pinyin: '...', meaning: '...' };
+  els.pinyinDisplay.textContent = info.pinyin;
+  els.meaningDisplay.textContent = info.meaning;
+}
+
+// === Speech ===
+function speakCurrentChar() {
+  const char = state.characters[state.currentCharIndex];
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(char);
+  utterance.lang = 'zh-CN';
+  utterance.rate = 0.8;
+  speechSynthesis.speak(utterance);
 }
 
 // === Screen Management ===
@@ -157,7 +245,7 @@ function validateInput() {
 }
 
 // === Practice Screen ===
-function startPractice() {
+async function startPractice() {
   const chars = extractCJKChars(els.charInput.value);
   if (chars.length !== REQUIRED_CHARS) return;
 
@@ -165,6 +253,12 @@ function startPractice() {
   state.currentCharIndex = 0;
   state.completedChars = new Set();
   state.score = 0;
+
+  // Fetch dictionary data for all characters
+  els.btnStart.disabled = true;
+  els.btnStart.textContent = 'Loading...';
+  await fetchDictData(chars);
+  els.btnStart.textContent = 'Start';
 
   showScreen('practice');
   initCharacter(0);
@@ -186,6 +280,7 @@ function initCharacter(index) {
   const char = state.characters[index];
 
   updatePracticeUI();
+  updateCharDetails();
 
   // Reference writer
   if (state.refWriter) {
