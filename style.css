@@ -1,0 +1,435 @@
+/* === Reset & Base === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f8f5f0;
+  color: #333;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* === Screen Switching === */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.2s ease;
+}
+
+.screen.hidden {
+  display: none;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* === Setup Screen === */
+.setup-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 16px;
+}
+
+.setup-container h1 {
+  font-size: 28px;
+  color: #2c3e50;
+}
+
+.setup-instructions {
+  font-size: 16px;
+  color: #666;
+  text-align: center;
+}
+
+#char-input {
+  width: 100%;
+  max-width: 340px;
+  padding: 14px 16px;
+  font-size: 24px;
+  text-align: center;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  outline: none;
+  letter-spacing: 4px;
+  transition: border-color 0.2s;
+}
+
+#char-input:focus {
+  border-color: #4a90d9;
+}
+
+#char-count {
+  font-size: 14px;
+  color: #888;
+}
+
+.char-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 340px;
+  min-height: 40px;
+}
+
+.char-preview .char-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #e8f4fd;
+  border-radius: 8px;
+  font-size: 20px;
+  color: #2c3e50;
+}
+
+.error {
+  color: #e74c3c;
+  font-size: 14px;
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* === Buttons === */
+.btn-primary {
+  min-width: 200px;
+  min-height: 52px;
+  padding: 14px 32px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  background: #4a90d9;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+  background: #3a7bc8;
+}
+
+.btn-primary:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  min-height: 48px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #4a90d9;
+  background: #fff;
+  border: 2px solid #4a90d9;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-secondary:active {
+  transform: scale(0.97);
+  background: #e8f4fd;
+}
+
+/* === Practice Screen === */
+#screen-practice {
+  background: #f8f5f0;
+}
+
+#practice-top {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+#practice-info-left, #practice-info-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+}
+
+#score-display {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+#char-index-display {
+  font-size: 12px;
+  color: #888;
+}
+
+#attempt-display {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a90d9;
+  text-align: center;
+}
+
+#ref-char-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+#practice-bottom {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  touch-action: none;
+  padding: 8px;
+}
+
+#quiz-writer-target {
+  touch-action: none;
+  border: 2px solid #ddd;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Grid lines inside quiz area */
+#quiz-writer-target {
+  position: relative;
+}
+
+#feedback-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border-radius: 16px;
+  z-index: 10;
+}
+
+#feedback-overlay.flash-red {
+  display: flex !important;
+  background: rgba(231, 76, 60, 0.15);
+  animation: flash 0.4s ease-out forwards;
+}
+
+#feedback-overlay.flash-green {
+  display: flex !important;
+  background: rgba(76, 175, 80, 0.15);
+  animation: flash 0.4s ease-out forwards;
+}
+
+#practice-controls {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  justify-content: center;
+  background: #fff;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+
+/* === Dialog (fail) === */
+.dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog-content {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 300px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.dialog-content p {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* === Success Overlay === */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.overlay-text {
+  font-size: 48px;
+  font-weight: 700;
+  color: #4CAF50;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  animation: pop-in 0.6s ease-out forwards;
+}
+
+/* === Reward Screen === */
+.reward-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.reward-container h1 {
+  font-size: 36px;
+  color: #2c3e50;
+}
+
+.tv-time {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4CAF50;
+}
+
+.tv-total {
+  font-size: 18px;
+  color: #666;
+}
+
+#cycle-info {
+  font-size: 14px;
+  color: #888;
+}
+
+/* === Animations === */
+@keyframes flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+.shake {
+  animation: shake 0.4s ease-out;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* === Confetti === */
+#confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.confetti-piece {
+  position: fixed;
+  top: -10px;
+  left: var(--x);
+  width: 10px;
+  height: 10px;
+  background: var(--color);
+  border-radius: 2px;
+  animation: confetti-fall 2.5s ease-in var(--delay) forwards;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity: 0; }
+}
+
+/* === Landscape Warning === */
+.landscape-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #f8f5f0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+
+.landscape-msg {
+  text-align: center;
+  font-size: 20px;
+  color: #666;
+  padding: 24px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-overlay {
+    display: flex;
+  }
+}
+
+/* === Small screen adjustments === */
+@media (max-height: 600px) {
+  #practice-top {
+    padding: 8px 12px;
+  }
+  #score-display {
+    font-size: 20px;
+  }
+  .setup-container h1 {
+    font-size: 24px;
+  }
+  #practice-controls {
+    padding: 8px 12px;
+  }
+}

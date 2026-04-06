@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Chinese Character Tutor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- SCREEN 1: Setup -->
+  <div id="screen-setup" class="screen active">
+    <div class="setup-container">
+      <h1>Character Practice</h1>
+      <p class="setup-instructions">Enter 10 Chinese characters for practice:</p>
+      <input type="text" id="char-input" maxlength="20"
+             placeholder="e.g. 你好世界我们学习中文"
+             inputmode="text" lang="zh" autocomplete="off">
+      <div id="char-count">0 / 10 characters</div>
+      <div id="char-preview" class="char-preview"></div>
+      <div id="char-error" class="error hidden"></div>
+      <button id="btn-start" class="btn-primary" disabled>Start</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Practice -->
+  <div id="screen-practice" class="screen hidden">
+    <div id="practice-top">
+      <div id="practice-info-left">
+        <div id="score-display">0 / 10</div>
+        <div id="char-index-display">Character 1</div>
+      </div>
+      <div id="ref-char-container">
+        <div id="ref-writer-target"></div>
+      </div>
+      <div id="practice-info-right">
+        <div id="attempt-display">Trace 1/3</div>
+      </div>
+    </div>
+
+    <div id="practice-bottom">
+      <div id="quiz-writer-target"></div>
+      <div id="feedback-overlay" class="hidden"></div>
+    </div>
+
+    <div id="practice-controls">
+      <button id="btn-restart" class="btn-secondary">Restart Trace</button>
+      <button id="btn-animate" class="btn-secondary">Show Strokes</button>
+    </div>
+
+    <!-- Fail dialog -->
+    <div id="fail-dialog" class="dialog hidden">
+      <div class="dialog-content">
+        <p>Not quite right! Try again?</p>
+        <button id="btn-retry-guided" class="btn-secondary">Try with guide</button>
+        <button id="btn-retry-unguided" class="btn-secondary">Try without guide</button>
+      </div>
+    </div>
+
+    <!-- Success overlay -->
+    <div id="success-overlay" class="overlay hidden">
+      <div class="overlay-text"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: Reward -->
+  <div id="screen-reward" class="screen hidden">
+    <div class="reward-container">
+      <div id="confetti-container"></div>
+      <h1 id="reward-title">Great Job!</h1>
+      <div id="tv-time-display" class="tv-time"></div>
+      <div id="tv-time-total" class="tv-total"></div>
+      <div id="cycle-info"></div>
+      <button id="btn-play-again" class="btn-primary">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Landscape warning -->
+  <div id="landscape-warning" class="landscape-overlay">
+    <div class="landscape-msg">
+      <p>Please rotate your device to portrait mode</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
