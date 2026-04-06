@@ -127,6 +127,7 @@ const state = {
   completedChars: new Set(),
   score: 0,
   attemptNum: 1,
+  guidedTotal: GUIDED_ATTEMPTS,
   currentMistakes: 0,
   currentStrokesCompleted: 0,
   refWriter: null,
@@ -616,6 +617,7 @@ function calcQuizSize() {
 function initCharacter(index) {
   state.currentCharIndex = index;
   state.attemptNum = 1;
+  state.guidedTotal = GUIDED_ATTEMPTS;
   state.currentMistakes = 0;
   state.currentStrokesCompleted = 0;
 
@@ -640,7 +642,7 @@ function initCharacter(index) {
 function createQuizWriter(char) {
   els.quizWriterTarget.innerHTML = '';
   const size = calcQuizSize();
-  const guided = state.attemptNum <= GUIDED_ATTEMPTS;
+  const guided = state.attemptNum <= state.guidedTotal;
 
   state.quizWriter = HanziWriter.create(els.quizWriterTarget, char, {
     width: size, height: size, padding: 15,
@@ -670,9 +672,9 @@ function updatePracticeUI() {
   els.scoreDisplay.textContent = state.score + ' / ' + total;
   els.charIndexDisplay.textContent = 'Character ' + (state.currentCharIndex + 1);
 
-  const isGuided = state.attemptNum <= GUIDED_ATTEMPTS;
+  const isGuided = state.attemptNum <= state.guidedTotal;
   if (isGuided) {
-    els.attemptDisplay.textContent = 'Trace ' + state.attemptNum + '/' + GUIDED_ATTEMPTS;
+    els.attemptDisplay.textContent = 'Trace ' + state.attemptNum + '/' + state.guidedTotal;
     els.attemptDisplay.style.color = '#4a90d9';
   } else {
     els.attemptDisplay.textContent = 'Free trace!';
@@ -699,7 +701,7 @@ function handleQuizComplete(data) {
   if (state.isAnimating) return;
   state.isAnimating = true;
 
-  if (state.attemptNum <= GUIDED_ATTEMPTS) {
+  if (state.attemptNum <= state.guidedTotal) {
     state.attemptNum++;
     showSuccessFlash('Nice!', () => {
       state.isAnimating = false;
@@ -764,6 +766,7 @@ function completeLessonCycle() {
 
 function retryGuided() {
   els.failDialog.classList.add('hidden');
+  state.guidedTotal = GUIDED_ATTEMPTS;
   state.attemptNum = 1;
   updatePracticeUI();
   createQuizWriter(state.characters[state.currentCharIndex]);
@@ -771,14 +774,15 @@ function retryGuided() {
 
 function retryUnguided() {
   els.failDialog.classList.add('hidden');
-  state.attemptNum = TOTAL_ATTEMPTS;
+  state.attemptNum = state.guidedTotal + 1;
   updatePracticeUI();
   createQuizWriter(state.characters[state.currentCharIndex]);
 }
 
 function switchToGuided() {
   if (state.isAnimating) return;
-  state.attemptNum = 1;
+  state.guidedTotal++;
+  state.attemptNum = state.guidedTotal;
   updatePracticeUI();
   createQuizWriter(state.characters[state.currentCharIndex]);
 }
