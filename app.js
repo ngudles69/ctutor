@@ -775,10 +775,12 @@ function revealTingxieChar(charIdx) {
   box.classList.remove('active');
   box.classList.add('completed');
   const char = getCurrentPhrase()[charIdx];
-  HanziWriter.create(box, char, {
+  const writer = HanziWriter.create(box, char, {
     width: 40, height: 40, padding: 2,
-    strokeColor: '#333', outlineColor: 'transparent',
-  }).showCharacter();
+    strokeColor: '#2c3e50', outlineColor: '#ddd',
+  });
+  writer.showCharacter();
+  writer.showOutline();
 }
 
 function startCharacter() {
