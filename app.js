@@ -1135,32 +1135,43 @@ function testSpeech() {
     alert('speechSynthesis API is NOT available in this browser');
     return;
   }
-  const voices = speechSynthesis.getVoices();
-  const zhVoices = voices.filter(v => v.lang.startsWith('zh'));
-  let report = 'Total voices: ' + voices.length + '\n';
-  report += 'Chinese voices: ' + zhVoices.length + '\n';
-  if (zhVoices.length > 0) {
-    report += '\nFirst few Chinese voices:\n';
-    zhVoices.slice(0, 5).forEach(v => { report += '  - ' + v.name + ' (' + v.lang + ')\n'; });
-  }
-  report += '\nspeaking: ' + speechSynthesis.speaking + '\n';
-  report += 'paused: ' + speechSynthesis.paused + '\n';
-  report += 'pending: ' + speechSynthesis.pending + '\n';
-  alert(report);
+  // Trigger voice loading by calling getVoices and listening for voiceschanged
+  speechSynthesis.getVoices();
+  let attempts = 0;
+  const tryReport = () => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0 && attempts < 10) {
+      attempts++;
+      setTimeout(tryReport, 200);
+      return;
+    }
+    const zhVoices = voices.filter(v => v.lang.startsWith('zh'));
+    let report = 'Total voices: ' + voices.length + '\n';
+    report += 'Chinese voices: ' + zhVoices.length + '\n';
+    if (voices.length > 0) {
+      report += '\nFirst 10 voices:\n';
+      voices.slice(0, 10).forEach(v => { report += '  - ' + v.name + ' (' + v.lang + ')\n'; });
+    }
+    alert(report);
 
-  // Try to speak
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance('\u4F60\u597D');
-    u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1;
-    if (zhVoices[0]) u.voice = zhVoices[0];
-    u.onstart = () => console.log('Speech started');
-    u.onend = () => console.log('Speech ended');
-    u.onerror = (e) => alert('Speech error: ' + e.error);
-    speechSynthesis.speak(u);
-  } catch (e) {
-    alert('Speech threw exception: ' + e.message);
-  }
+    // Try to speak with whatever voice is available
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('Hello, \u4F60\u597D');
+      u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1;
+      if (zhVoices[0]) u.voice = zhVoices[0];
+      else if (voices[0]) u.voice = voices[0];
+      u.onstart = () => console.log('Speech started');
+      u.onend = () => console.log('Speech ended');
+      u.onerror = (e) => alert('Speech error: ' + (e.error || 'unknown'));
+      speechSynthesis.speak(u);
+    } catch (e) {
+      alert('Speech threw exception: ' + e.message);
+    }
+  };
+  speechSynthesis.addEventListener('voiceschanged', tryReport, {once: true});
+  // Fallback poll if voiceschanged never fires
+  setTimeout(tryReport, 100);
 }
 
 function speakText(text) {
