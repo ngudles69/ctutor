@@ -201,7 +201,7 @@ function init() {
   els.btnBack.addEventListener('click', navBack);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
-  els.btnPinCancel.addEventListener('click', () => navigateTo('home'));
+  els.btnPinCancel.addEventListener('click', navBack);
   els.pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitPin(); });
   els.btnAddLesson.addEventListener('click', () => showCreateLesson());
   els.btnChangePin.addEventListener('click', () => navigateTo('change-pin', 'Change PIN'));
