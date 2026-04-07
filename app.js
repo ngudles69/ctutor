@@ -90,6 +90,20 @@ const Storage = {
     const c = l.completions.find(x => x.id === compId);
     if (c) { c.note = note; this._save(); }
   },
+  saveLessonProgress(lessonId, progress) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    l.progress = progress;
+    this._save();
+  },
+  getLessonProgress(lessonId) {
+    const l = this.getLesson(lessonId); if (!l) return null;
+    return l.progress || null;
+  },
+  clearLessonProgress(lessonId) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    delete l.progress;
+    this._save();
+  },
   getUnclaimedBalance() {
     return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
   },
@@ -593,10 +607,20 @@ async function startLesson(lessonId) {
   const lesson = Storage.getLesson(lessonId); if (!lesson) return;
   state.currentLessonId = lessonId;
   state.phrases = lesson.phrases.slice();
-  state.sectionScores = { guided: 0, free: 0, tingxie: 0, bonus: 0 };
-  state.completedSections = [];
-  state.revisionPhrases = [];
-  state.tingxieResults = {};
+
+  // Restore saved progress if any, otherwise start fresh
+  const saved = Storage.getLessonProgress(lessonId);
+  if (saved) {
+    state.sectionScores = saved.sectionScores || { guided: 0, free: 0, tingxie: 0, bonus: 0 };
+    state.completedSections = saved.completedSections || [];
+    state.revisionPhrases = saved.revisionPhrases || [];
+    state.tingxieResults = saved.tingxieResults || {};
+  } else {
+    state.sectionScores = { guided: 0, free: 0, tingxie: 0, bonus: 0 };
+    state.completedSections = [];
+    state.revisionPhrases = [];
+    state.tingxieResults = {};
+  }
   state.activeSectionId = null;
 
   // Fetch dict data for all unique characters
@@ -605,6 +629,16 @@ async function startLesson(lessonId) {
 
   const lesson2 = Storage.getLesson(lessonId);
   navigateTo('section-menu', lesson2.name);
+}
+
+function persistLessonProgress() {
+  if (!state.currentLessonId) return;
+  Storage.saveLessonProgress(state.currentLessonId, {
+    sectionScores: state.sectionScores,
+    completedSections: state.completedSections,
+    revisionPhrases: state.revisionPhrases,
+    tingxieResults: state.tingxieResults,
+  });
 }
 
 function enterSection(sectionId) {
@@ -668,6 +702,9 @@ function exitSection() {
   }
 
   destroyWriters();
+
+  // Persist progress so the student can come back later
+  persistLessonProgress();
 
   // Show confetti on section menu, then navigate
   const lesson = Storage.getLesson(state.currentLessonId);
@@ -1028,6 +1065,9 @@ function showResults() {
     tvEarned: tvEarned, claimed: false,
   });
 
+  // Lesson fully complete — clear in-progress state
+  Storage.clearLessonProgress(state.currentLessonId);
+
   const balance = Storage.getUnclaimedBalance();
   els.scoreSummary.innerHTML =
     '<div class="score-big">' + total + ' / 100</div>' +
@@ -1091,12 +1131,18 @@ function ensureVoices() {
 }
 async function speakText(text) {
   if (!('speechSynthesis' in window) || !text) return;
-  speechSynthesis.cancel();
   if (!voicesReady) await ensureVoices();
+  // Only cancel if currently speaking (avoid Chrome bug where cancel+speak fails)
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+    await new Promise(r => setTimeout(r, 50));
+  }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1; u.pitch = 1;
   const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('zh'));
   if (v) u.voice = v;
+  // Resume in case Chrome paused the synthesis
+  if (speechSynthesis.paused) speechSynthesis.resume();
   speechSynthesis.speak(u);
 }
 
