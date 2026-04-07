@@ -1123,12 +1123,18 @@ function updateCharDetails() {
 // ============================================
 // SPEECH
 // ============================================
-let voicesReady = false;
-function ensureVoices() {
-  return new Promise(r => {
-    if (speechSynthesis.getVoices().length) { voicesReady=true; r(); return; }
-    speechSynthesis.addEventListener('voiceschanged', () => { voicesReady=true; r(); }, {once:true});
-  });
+let cachedVoices = [];
+let cachedZhVoice = null;
+function loadVoices() {
+  cachedVoices = speechSynthesis.getVoices();
+  // Prefer zh-CN, then any zh, then any voice
+  cachedZhVoice = cachedVoices.find(v => v.lang === 'zh-CN' || v.lang === 'zh_CN')
+    || cachedVoices.find(v => v.lang.toLowerCase().startsWith('zh'))
+    || null;
+}
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
 function testSpeech() {
   if (!('speechSynthesis' in window)) {
@@ -1180,9 +1186,9 @@ function speakText(text) {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1; u.pitch = 1;
-    const voices = speechSynthesis.getVoices();
-    const v = voices.find(v => v.lang.startsWith('zh'));
-    if (v) u.voice = v;
+    // Refresh cache if empty (voices may not have been loaded at init time)
+    if (!cachedZhVoice) loadVoices();
+    if (cachedZhVoice) u.voice = cachedZhVoice;
     if (speechSynthesis.paused) speechSynthesis.resume();
     speechSynthesis.speak(u);
   } catch (e) {
