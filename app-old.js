@@ -5,7 +5,7 @@
 // ============================================
 const Storage = {
   _data: null,
-  _KEY: 'ctutor_data',
+  _KEY: 'ctutor_data_old',
 
   _load() {
     if (this._data) return this._data;
