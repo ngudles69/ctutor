@@ -85,11 +85,6 @@ const Storage = {
     const c = l.completions.find(x => x.id === compId);
     if (c) { c.claimed = claimed; this._save(); }
   },
-  setCompletionNote(lessonId, compId, note) {
-    const l = this.getLesson(lessonId); if (!l) return;
-    const c = l.completions.find(x => x.id === compId);
-    if (c) { c.note = note; this._save(); }
-  },
   getUnclaimedBalance() {
     return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
   },
@@ -138,7 +133,6 @@ const $ = id => document.getElementById(id);
 const els = {
   topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnModeSwitch:$('btn-mode-switch'),
   btnEnterLearner:$('btn-enter-learner'), btnEnterParent:$('btn-enter-parent'),
-  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), importFileInput:$('import-file-input'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   balanceAmount:$('balance-amount'), lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
@@ -180,9 +174,6 @@ const els = {
 function init() {
   els.btnEnterLearner.addEventListener('click', () => enterLearnerMode());
   els.btnEnterParent.addEventListener('click', () => showPinEntry('parent'));
-  els.btnExportData.addEventListener('click', exportData);
-  els.btnImportData.addEventListener('click', () => els.importFileInput.click());
-  els.importFileInput.addEventListener('change', importData);
   els.btnBack.addEventListener('click', navBack);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
@@ -202,7 +193,7 @@ function init() {
   els.btnGuided.addEventListener('click', switchToGuided);
   els.btnAnimate.addEventListener('click', showAnimation);
   els.btnSkip.addEventListener('click', skipCharacter);
-  els.btnSpeak.addEventListener('click', () => speakText(getCurrentPhrase()));
+  els.btnSpeak.addEventListener('click', () => speakText(getCurrentChar()));
   els.btnSpeakPhrase.addEventListener('click', () => speakText(getCurrentPhrase()));
   els.btnRetryGuided.addEventListener('click', retryWithGuided);
   els.btnRetryFree.addEventListener('click', retryFree);
@@ -427,21 +418,12 @@ function renderLessonReview() {
     const item = document.createElement('div');
     item.className = 'completion-item' + (comp.claimed ? ' claimed' : '');
     item.innerHTML =
-      '<div class="completion-row">' +
       '<div class="completion-info"><div class="completion-date">' + d.toLocaleDateString() + '</div>' +
       '<div class="completion-detail">Score: ' + (comp.score||0) + '/100 &middot; ' + comp.tvEarned + ' min TV</div></div>' +
       '<div class="completion-reward"><span class="reward-amount">' + comp.tvEarned + ' min</span>' +
-      '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>' +
-      '</div>' +
-      '<input type="text" class="completion-note-input" placeholder="Add a note...">';
-    const noteInput = item.querySelector('.completion-note-input');
-    noteInput.value = comp.note || '';
-    noteInput.addEventListener('input', function() {
-      Storage.setCompletionNote(state.currentLessonId, comp.id, this.value);
-    });
+      '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>';
     item.querySelector('.claim-checkbox').addEventListener('change', function() {
-      Storage.markClaimed(state.currentLessonId, comp.id, this.checked);
-      renderLessonReview();
+      Storage.markClaimed(state.currentLessonId, comp.id, this.checked); renderLessonReview();
     });
     els.reviewCompletions.appendChild(item);
   });
@@ -459,54 +441,6 @@ function saveNewPin() {
   if (np!==cf) { e.textContent='PINs do not match'; e.classList.remove('hidden'); return; }
   Storage.setPin(np); els.currentPinInput.value=''; els.newPinInput.value=''; els.confirmPinInput.value='';
   e.classList.add('hidden'); navBack();
-}
-
-// ============================================
-// EXPORT / IMPORT
-// ============================================
-function exportData() {
-  const data = { lessons: Storage.getLessons(), exportedAt: Date.now(), version: 1 };
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const d = new Date();
-  const date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  a.href = url;
-  a.download = 'ctutor-backup-' + date + '.json';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data || !Array.isArray(data.lessons)) {
-        alert('Invalid backup file: missing lessons array');
-        return;
-      }
-      if (!confirm('This will replace all existing lessons and progress. Continue?')) {
-        return;
-      }
-      // Replace lessons but preserve PIN
-      const cur = Storage._load();
-      cur.lessons = data.lessons;
-      Storage._save();
-      alert('Imported ' + data.lessons.length + ' lesson(s).');
-      // Refresh current screen if applicable
-      if (state.mode === 'learner') renderLearnerDashboard();
-      if (state.mode === 'parent') renderParentDashboard();
-    } catch (err) {
-      alert('Failed to import: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = ''; // reset so same file can be re-imported
 }
 
 // ============================================
@@ -709,7 +643,7 @@ function startPhrase() {
   updatePracticeUI();
   startCharacter();
 
-  // Auto-speak the full phrase at the start of each phrase
+  // Auto-speak the phrase for all sections
   speakText(getCurrentPhrase());
 }
 
@@ -775,12 +709,10 @@ function revealTingxieChar(charIdx) {
   box.classList.remove('active');
   box.classList.add('completed');
   const char = getCurrentPhrase()[charIdx];
-  const writer = HanziWriter.create(box, char, {
+  HanziWriter.create(box, char, {
     width: 40, height: 40, padding: 2,
-    strokeColor: '#2c3e50', outlineColor: '#ddd',
-  });
-  writer.showCharacter();
-  writer.showOutline();
+    strokeColor: '#333', outlineColor: 'transparent',
+  }).showCharacter();
 }
 
 function startCharacter() {
@@ -823,7 +755,7 @@ function createQuizWriter(char, showOutline) {
     highlightColor: '#aaf',
     showHintAfterMisses: showOutline ? 3 : false,
     highlightOnComplete: false,
-    leniency: 2,
+    leniency: 1.5,
   });
 
   state.quizWriter.quiz({
@@ -895,26 +827,18 @@ function onRoundComplete() {
     state.tingxieResults[getCurrentPhraseIdx()] = state.tingxieCharResults.slice();
   }
 
-  // Phrase just finished — celebrate with confetti + 1s pause
-  state.isAnimating = true;
-  launchConfetti(els.confettiContainer);
-  setTimeout(() => {
-    state.isAnimating = false;
-    if (sec.id === 'guided' || sec.id === 'revision') {
-      if (state.roundNum < state.guidedTotal) {
-        state.roundNum++;
-        state.currentCharIdx = 0;
-        destroyWriters();
-        startCharacter();
-        // Speak the phrase again at the start of the new round
-        speakText(getCurrentPhrase());
-      } else {
-        advancePhrase();
-      }
+  if (sec.id === 'guided' || sec.id === 'revision') {
+    if (state.roundNum < state.guidedTotal) {
+      state.roundNum++;
+      state.currentCharIdx = 0;
+      destroyWriters();
+      startCharacter();
     } else {
       advancePhrase();
     }
-  }, 1000);
+  } else {
+    advancePhrase();
+  }
 }
 
 function advancePhrase() {
