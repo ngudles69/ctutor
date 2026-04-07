@@ -37,8 +37,9 @@
       <div class="home-data-actions">
         <button id="btn-export-data" class="btn-link">Export Data</button>
         <button id="btn-import-data" class="btn-link">Import Data</button>
+        <button id="btn-share-data" class="btn-link">Share Data</button>
         <button id="btn-test-speech" class="btn-link">Test Speech</button>
-        <input type="file" id="import-file-input" accept="application/json,.json" class="hidden">
+        <input type="file" id="import-file-input" accept=".ctutor,.json,application/json" class="hidden">
       </div>
     </div>
   </div>
@@ -238,7 +239,21 @@
     <div class="landscape-msg"><p>Please rotate your device to portrait mode</p></div>
   </div>
 
+  <!-- Import Options Dialog -->
+  <div id="import-dialog" class="dialog hidden">
+    <div class="dialog-content">
+      <p>Import Chinese Tutor data?</p>
+      <div id="import-summary" class="import-summary"></div>
+      <button id="btn-import-merge" class="btn-primary">Merge</button>
+      <div id="import-more-options" class="hidden">
+        <button id="btn-import-replace" class="btn-danger">Replace All Data</button>
+      </div>
+      <button id="btn-import-show-more" class="btn-link">More options</button>
+      <button id="btn-import-cancel" class="btn-link">Cancel</button>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>

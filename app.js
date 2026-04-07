@@ -152,7 +152,11 @@ const $ = id => document.getElementById(id);
 const els = {
   topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnModeSwitch:$('btn-mode-switch'),
   btnEnterLearner:$('btn-enter-learner'), btnEnterParent:$('btn-enter-parent'),
-  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), btnTestSpeech:$('btn-test-speech'), importFileInput:$('import-file-input'),
+  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), btnShareData:$('btn-share-data'), btnTestSpeech:$('btn-test-speech'), importFileInput:$('import-file-input'),
+  importDialog:$('import-dialog'), importSummary:$('import-summary'),
+  btnImportMerge:$('btn-import-merge'), btnImportReplace:$('btn-import-replace'),
+  btnImportShowMore:$('btn-import-show-more'), btnImportMoreOptions:$('import-more-options'),
+  btnImportCancel:$('btn-import-cancel'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   balanceAmount:$('balance-amount'), lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
@@ -197,7 +201,16 @@ function init() {
   els.btnExportData.addEventListener('click', exportData);
   els.btnImportData.addEventListener('click', () => els.importFileInput.click());
   els.importFileInput.addEventListener('change', importData);
+  els.btnShareData.addEventListener('click', shareData);
   els.btnTestSpeech.addEventListener('click', testSpeech);
+  els.btnImportMerge.addEventListener('click', () => doImport('merge'));
+  els.btnImportReplace.addEventListener('click', () => doImport('replace'));
+  els.btnImportShowMore.addEventListener('click', () => {
+    els.btnImportMoreOptions.classList.remove('hidden');
+    els.btnImportShowMore.classList.add('hidden');
+  });
+  els.btnImportCancel.addEventListener('click', closeImportDialog);
+  checkUrlImport();
   els.btnBack.addEventListener('click', navBack);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
@@ -479,19 +492,69 @@ function saveNewPin() {
 // ============================================
 // EXPORT / IMPORT
 // ============================================
-function exportData() {
-  const data = { lessons: Storage.getLessons(), exportedAt: Date.now(), version: 1 };
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+function dateStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function buildExportPayload() {
+  return { lessons: Storage.getLessons(), exportedAt: Date.now(), version: 2 };
+}
+
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const d = new Date();
-  const date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  a.href = url;
-  a.download = 'ctutor-backup-' + date + '.json';
+  a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function exportData() {
+  const json = JSON.stringify(buildExportPayload(), null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  downloadBlob(blob, 'ctutor-backup-' + dateStr() + '.json');
+}
+
+async function shareData() {
+  const lessons = Storage.getLessons();
+  if (lessons.length === 0) {
+    alert('No lessons to share');
+    return;
+  }
+  const payload = buildExportPayload();
+  const json = JSON.stringify(payload);
+
+  // Try URL-based share if small enough (<=5KB)
+  if (json.length <= 5120) {
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
+    const url = location.origin + location.pathname + '?import=' + encoded;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Chinese Tutor Data', text: 'Tap to import Chinese Tutor data', url: url });
+        return;
+      } catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
+    }
+    // Fallback: copy to clipboard
+    if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(url); alert('Link copied to clipboard'); return; }
+      catch (e) { /* fall through to file */ }
+    }
+  }
+
+  // Large payload (or URL share failed): share as a .ctutor file
+  const blob = new Blob([json], { type: 'application/json' });
+  const filename = 'ctutor-backup-' + dateStr() + '.ctutor';
+  try {
+    const file = new File([blob], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Chinese Tutor Data' });
+      return;
+    }
+  } catch (e) { if (e.name !== 'AbortError') console.warn('file share failed:', e); }
+
+  // Final fallback: download
+  downloadBlob(blob, filename);
 }
 
 function importData(event) {
@@ -501,27 +564,134 @@ function importData(event) {
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data || !Array.isArray(data.lessons)) {
-        alert('Invalid backup file: missing lessons array');
-        return;
-      }
-      if (!confirm('This will replace all existing lessons and progress. Continue?')) {
-        return;
-      }
-      // Replace lessons but preserve PIN
-      const cur = Storage._load();
-      cur.lessons = data.lessons;
-      Storage._save();
-      alert('Imported ' + data.lessons.length + ' lesson(s).');
-      // Refresh current screen if applicable
-      if (state.mode === 'learner') renderLearnerDashboard();
-      if (state.mode === 'parent') renderParentDashboard();
+      if (!data || !Array.isArray(data.lessons)) throw new Error('Missing lessons array');
+      showImportDialog(data);
     } catch (err) {
       alert('Failed to import: ' + err.message);
     }
   };
   reader.readAsText(file);
-  event.target.value = ''; // reset so same file can be re-imported
+  event.target.value = '';
+}
+
+let pendingImportData = null;
+function showImportDialog(data) {
+  pendingImportData = data;
+  els.importSummary.textContent = data.lessons.length + ' lesson(s) in file';
+  els.btnImportMoreOptions.classList.add('hidden');
+  els.btnImportShowMore.classList.remove('hidden');
+  els.importDialog.classList.remove('hidden');
+}
+function closeImportDialog() {
+  els.importDialog.classList.add('hidden');
+  pendingImportData = null;
+}
+function doImport(mode) {
+  if (!pendingImportData) return;
+  try {
+    let result;
+    if (mode === 'replace') {
+      if (!confirm('This will REPLACE all existing lessons and progress. Are you sure?')) return;
+      result = replaceImportedData(pendingImportData);
+    } else {
+      result = mergeImportedData(pendingImportData);
+    }
+    closeImportDialog();
+    alert(mode === 'replace'
+      ? 'Replaced with ' + result.total + ' lesson(s).'
+      : 'Imported ' + result.added + ' new lesson(s), merged ' + result.merged + ' existing.');
+    if (state.mode === 'learner') renderLearnerDashboard();
+    if (state.mode === 'parent') renderParentDashboard();
+  } catch (err) {
+    alert('Failed to import: ' + err.message);
+  }
+}
+
+function replaceImportedData(data) {
+  if (!data || !Array.isArray(data.lessons)) throw new Error('Invalid payload: missing lessons array');
+  const cur = Storage._load();
+  cur.lessons = data.lessons;
+  Storage._save();
+  return { total: data.lessons.length };
+}
+
+function mergeImportedData(data) {
+  if (!data || !Array.isArray(data.lessons)) throw new Error('Invalid payload: missing lessons array');
+  const cur = Storage._load();
+  const localById = {};
+  cur.lessons.forEach(l => { localById[l.id] = l; });
+
+  let added = 0, merged = 0;
+  data.lessons.forEach(remote => {
+    const local = localById[remote.id];
+    if (!local) {
+      cur.lessons.push(remote);
+      added++;
+    } else {
+      mergeLesson(local, remote);
+      merged++;
+    }
+  });
+  Storage._save();
+  return { added: added, merged: merged };
+}
+
+function mergeLesson(local, remote) {
+  // Name/phrases: prefer most recently updated, default to remote when no timestamps
+  if ((remote.updatedAt || 0) >= (local.updatedAt || 0)) {
+    local.name = remote.name;
+    local.phrases = remote.phrases;
+    if (remote.updatedAt) local.updatedAt = remote.updatedAt;
+  }
+
+  // Progress: keep the side with more completed sections
+  const localProg = local.progress || null;
+  const remoteProg = remote.progress || null;
+  const localDone = (localProg && localProg.completedSections || []).length;
+  const remoteDone = (remoteProg && remoteProg.completedSections || []).length;
+  if (remoteDone > localDone) {
+    local.progress = remoteProg;
+  } else if (remoteDone > 0 && remoteDone === localDone) {
+    // Same section count — merge sectionScores by max
+    local.progress = local.progress || {};
+    local.progress.sectionScores = local.progress.sectionScores || {};
+    Object.keys(remoteProg.sectionScores || {}).forEach(k => {
+      local.progress.sectionScores[k] = Math.max(
+        local.progress.sectionScores[k] || 0,
+        remoteProg.sectionScores[k] || 0
+      );
+    });
+  }
+
+  // Completions: union by ID, OR-merge claims, prefer non-empty notes
+  local.completions = local.completions || [];
+  const compById = {};
+  local.completions.forEach(c => { compById[c.id] = c; });
+  (remote.completions || []).forEach(rc => {
+    const lc = compById[rc.id];
+    if (!lc) {
+      local.completions.push(rc);
+    } else {
+      lc.claimed = lc.claimed || rc.claimed;
+      if (!lc.note && rc.note) lc.note = rc.note;
+    }
+  });
+}
+
+function checkUrlImport() {
+  const params = new URLSearchParams(location.search);
+  const encoded = params.get('import');
+  if (!encoded) return;
+  // Clean URL so reloading doesn't re-prompt
+  history.replaceState({}, '', location.pathname);
+  try {
+    const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+    const data = JSON.parse(json);
+    if (!data || !Array.isArray(data.lessons)) throw new Error('Missing lessons array');
+    showImportDialog(data);
+  } catch (e) {
+    alert('Invalid import link: ' + e.message);
+  }
 }
 
 // ============================================
