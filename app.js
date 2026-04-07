@@ -80,10 +80,15 @@ const Storage = {
     comp.id = 'c_' + Date.now(); comp.date = Date.now();
     l.completions.push(comp); this._save(); return comp;
   },
-  markClaimed(lessonId, compId, claimed) {
+  markClaimed(lessonId, compId, claimed, note) {
     const l = this.getLesson(lessonId); if (!l) return;
     const c = l.completions.find(x => x.id === compId);
-    if (c) { c.claimed = claimed; this._save(); }
+    if (c) {
+      c.claimed = claimed;
+      if (claimed) c.note = note || '';
+      else delete c.note;
+      this._save();
+    }
   },
   getUnclaimedBalance() {
     return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
@@ -421,13 +426,25 @@ function renderLessonReview() {
     const d = new Date(comp.date);
     const item = document.createElement('div');
     item.className = 'completion-item' + (comp.claimed ? ' claimed' : '');
+    const noteHtml = comp.claimed && comp.note
+      ? '<div class="completion-note">\u201C' + esc(comp.note) + '\u201D</div>'
+      : '';
     item.innerHTML =
+      '<div class="completion-row">' +
       '<div class="completion-info"><div class="completion-date">' + d.toLocaleDateString() + '</div>' +
       '<div class="completion-detail">Score: ' + (comp.score||0) + '/100 &middot; ' + comp.tvEarned + ' min TV</div></div>' +
       '<div class="completion-reward"><span class="reward-amount">' + comp.tvEarned + ' min</span>' +
-      '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>';
+      '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>' +
+      '</div>' + noteHtml;
     item.querySelector('.claim-checkbox').addEventListener('change', function() {
-      Storage.markClaimed(state.currentLessonId, comp.id, this.checked); renderLessonReview();
+      if (this.checked) {
+        const note = prompt('Add a note for this claimed reward (optional):', '');
+        if (note === null) { this.checked = false; return; }
+        Storage.markClaimed(state.currentLessonId, comp.id, true, note);
+      } else {
+        Storage.markClaimed(state.currentLessonId, comp.id, false);
+      }
+      renderLessonReview();
     });
     els.reviewCompletions.appendChild(item);
   });
