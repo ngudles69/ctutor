@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Chinese Character Tutor</title>
+  <link rel="stylesheet" href="style-old.css?v=1">
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div id="top-bar" class="hidden">
+    <button id="btn-back" class="top-btn" aria-label="Back">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div id="top-title"></div>
+    <button id="btn-mode-switch" class="top-btn" aria-label="Switch mode">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <!-- SCREEN: Home -->
+  <div id="screen-home" class="screen active">
+    <div class="home-container">
+      <h1 class="app-logo">Character Tutor</h1>
+      <p class="home-subtitle">Learn to write Chinese characters</p>
+      <div class="home-buttons">
+        <button id="btn-enter-learner" class="mode-btn learner-btn">
+          <span class="mode-icon">&#x1F393;</span>
+          <span class="mode-label">Learner</span>
+        </button>
+        <button id="btn-enter-parent" class="mode-btn parent-btn">
+          <span class="mode-icon">&#x1F4DD;</span>
+          <span class="mode-label">Parent / Teacher</span>
+        </button>
+      </div>
+      <div class="home-data-actions">
+        <button id="btn-export-data" class="btn-link">Export Data</button>
+        <button id="btn-import-data" class="btn-link">Import Data</button>
+        <input type="file" id="import-file-input" accept="application/json,.json" class="hidden">
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: PIN Entry -->
+  <div id="screen-pin" class="screen hidden">
+    <div class="pin-container">
+      <h2>Enter PIN</h2>
+      <input type="password" id="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="----" autocomplete="off">
+      <div id="pin-error" class="error hidden"></div>
+      <button id="btn-pin-submit" class="btn-primary">Enter</button>
+      <button id="btn-pin-cancel" class="btn-link">Cancel</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: Learner Dashboard -->
+  <div id="screen-learner" class="screen hidden">
+    <div class="learner-dashboard">
+      <div id="balance-card" class="balance-card">
+        <div class="balance-label">TV / Games Time</div>
+        <div id="balance-amount" class="balance-amount">0 min</div>
+      </div>
+      <h3 class="section-heading">Your Lessons</h3>
+      <div id="lesson-list-learner" class="lesson-list"></div>
+      <div id="no-lessons-learner" class="empty-state hidden">
+        <p>No lessons yet! Ask your parent or teacher to add some.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Parent Dashboard -->
+  <div id="screen-parent" class="screen hidden">
+    <div class="parent-dashboard">
+      <div class="parent-stats">
+        <div class="stat-item"><div id="stat-lessons" class="stat-value">0</div><div class="stat-label">Lessons</div></div>
+        <div class="stat-item"><div id="stat-unclaimed" class="stat-value">0 min</div><div class="stat-label">Unclaimed</div></div>
+        <div class="stat-item"><div id="stat-total" class="stat-value">0 min</div><div class="stat-label">Total Earned</div></div>
+      </div>
+      <div class="parent-actions">
+        <button id="btn-add-lesson" class="btn-primary">+ Add Lesson</button>
+        <button id="btn-change-pin" class="btn-link">Change PIN</button>
+      </div>
+      <h3 class="section-heading">Lessons</h3>
+      <div id="lesson-list-parent" class="lesson-list"></div>
+      <div id="no-lessons-parent" class="empty-state hidden"><p>No lessons yet. Tap "Add Lesson" to create one.</p></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Create / Edit Lesson -->
+  <div id="screen-create-lesson" class="screen hidden">
+    <div class="form-container">
+      <label class="form-label" for="lesson-name-input">Lesson Name</label>
+      <input type="text" id="lesson-name-input" placeholder="e.g. Family Members" autocomplete="off">
+      <label class="form-label">Phrases (1-20)</label>
+      <div id="phrase-inputs-container" class="phrase-inputs-container"></div>
+      <button id="btn-add-phrase" class="btn-add-phrase" type="button">+ Add another phrase</button>
+      <div id="lesson-phrase-count" class="char-count">0 / 20 phrases</div>
+      <div id="lesson-phrase-preview" class="phrase-preview"></div>
+      <div id="lesson-error" class="error hidden"></div>
+      <div class="form-buttons">
+        <button id="btn-save-lesson" class="btn-primary" disabled>Save Lesson</button>
+        <button id="btn-cancel-lesson" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Lesson Review -->
+  <div id="screen-lesson-review" class="screen hidden">
+    <div class="review-container">
+      <div id="review-header" class="review-header">
+        <div id="review-name" class="review-name"></div>
+        <div id="review-phrases" class="phrase-preview"></div>
+      </div>
+      <h3 class="section-heading">Completions</h3>
+      <div id="review-completions" class="completions-list"></div>
+      <div id="no-completions" class="empty-state hidden"><p>Not completed yet.</p></div>
+      <div class="review-actions">
+        <button id="btn-edit-lesson" class="btn-secondary">Edit Lesson</button>
+        <button id="btn-delete-lesson" class="btn-danger">Delete Lesson</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Change PIN -->
+  <div id="screen-change-pin" class="screen hidden">
+    <div class="form-container">
+      <label class="form-label" for="current-pin-input">Current PIN</label>
+      <input type="password" id="current-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <label class="form-label" for="new-pin-input">New PIN</label>
+      <input type="password" id="new-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <label class="form-label" for="confirm-pin-input">Confirm New PIN</label>
+      <input type="password" id="confirm-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <div id="pin-change-error" class="error hidden"></div>
+      <div class="form-buttons">
+        <button id="btn-save-pin" class="btn-primary">Save PIN</button>
+        <button id="btn-cancel-pin" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Section Menu -->
+  <div id="screen-section-menu" class="screen hidden">
+    <div class="section-menu-container">
+      <div class="section-menu-header">
+        <div id="section-menu-score" class="section-menu-score">0 / 100</div>
+      </div>
+      <div id="section-menu-list" class="section-menu-list"></div>
+      <div class="section-menu-footer">
+        <button id="btn-complete-lesson" class="btn-primary" disabled>Complete Lesson</button>
+      </div>
+    </div>
+    <div id="confetti-container-menu"></div>
+  </div>
+
+  <!-- SCREEN: Practice -->
+  <div id="screen-practice" class="screen hidden">
+    <!-- Section label -->
+    <div id="section-tabs"></div>
+
+    <!-- Phrase info bar: progress left, phrase center, score right -->
+    <div id="phrase-bar">
+      <span id="phrase-progress"></span>
+      <div id="phrase-chars-display"></div>
+      <span id="practice-score"></span>
+    </div>
+
+    <!-- Reference area (guided / free) -->
+    <div id="ref-area">
+      <div id="ref-char-container">
+        <div id="ref-writer-target"></div>
+      </div>
+      <div id="ref-info">
+        <div id="pinyin-display"></div>
+        <div id="meaning-display"></div>
+        <button id="btn-speak" class="btn-speak" aria-label="Speak character">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tingxie area (hidden unless tingxie section) -->
+    <div id="tingxie-area" class="hidden">
+      <div id="tingxie-chars-display" class="tingxie-chars-display"></div>
+      <button id="btn-speak-phrase" class="btn-speak-large" aria-label="Listen to phrase">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+      </button>
+      <div class="tingxie-hint">Tap to listen again</div>
+    </div>
+
+    <!-- Round progress -->
+    <div id="progress-info">
+      <span id="attempt-display"></span>
+    </div>
+
+    <!-- Tracing area -->
+    <div id="practice-bottom">
+      <div id="quiz-writer-target"></div>
+      <div id="feedback-overlay" class="hidden"></div>
+    </div>
+
+    <!-- Controls -->
+    <div id="practice-controls">
+      <button id="btn-restart" class="btn-ctrl">Restart</button>
+      <button id="btn-guided" class="btn-ctrl hidden">Guided</button>
+      <button id="btn-animate" class="btn-ctrl">Strokes</button>
+      <button id="btn-skip" class="btn-ctrl">Skip</button>
+    </div>
+
+    <!-- Dialogs -->
+    <div id="fail-dialog" class="dialog hidden">
+      <div class="dialog-content">
+        <p>Not quite right!</p>
+        <button id="btn-retry-guided" class="btn-secondary">Guided Trace</button>
+        <button id="btn-retry-free" class="btn-secondary">Try Again</button>
+        <button id="btn-fail-skip" class="btn-link hidden">Skip</button>
+      </div>
+    </div>
+    <div id="success-overlay" class="overlay hidden">
+      <div class="overlay-text"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Reward / Results -->
+  <div id="screen-reward" class="screen hidden">
+    <div class="reward-container">
+      <div id="confetti-container"></div>
+      <h1>Lesson Complete!</h1>
+      <div id="score-summary" class="score-summary"></div>
+      <div id="tv-time-display" class="tv-time"></div>
+      <div id="tv-time-total" class="tv-total"></div>
+      <button id="btn-back-to-lessons" class="btn-primary">Back to Lessons</button>
+    </div>
+  </div>
+
+  <!-- Landscape warning -->
+  <div id="landscape-warning" class="landscape-overlay">
+    <div class="landscape-msg"><p>Please rotate your device to portrait mode</p></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
+  <script src="app-old.js?v=1"></script>
+</body>
+</html>

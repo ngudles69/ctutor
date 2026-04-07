@@ -1,0 +1,207 @@
+/* === Reset === */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8f5f0;color:#333;height:100dvh;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+
+/* === Screens === */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.screen.hidden{display:none}.screen.active{display:flex}.screen.has-topbar{top:52px}
+
+/* === Top Bar === */
+#top-bar{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);z-index:500}
+#top-bar.hidden{display:none}
+#top-title{font-size:16px;font-weight:600;color:#2c3e50}
+.top-btn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#4a90d9;cursor:pointer;touch-action:manipulation;border-radius:8px}
+.top-btn:active{background:#e8f4fd}.top-btn.invisible{visibility:hidden}
+
+/* === Home === */
+.home-container{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px}
+.app-logo{font-size:32px;font-weight:700;color:#2c3e50}
+.home-subtitle{font-size:16px;color:#888;margin-bottom:24px}
+.home-buttons{display:flex;flex-direction:column;gap:16px;width:100%;max-width:280px}
+.mode-btn{display:flex;align-items:center;gap:16px;padding:20px 24px;border-radius:16px;border:none;font-size:20px;font-weight:600;cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.mode-btn:active{transform:scale(.97)}.mode-icon{font-size:28px}
+.learner-btn{background:#e8f8e8;color:#2d7a3a}.parent-btn{background:#e8f0fd;color:#2c5ea0}
+.home-data-actions{display:flex;gap:16px;margin-top:24px;justify-content:center}
+
+/* === PIN === */
+.pin-container{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px}
+.pin-container h2{font-size:24px;color:#2c3e50}
+#pin-input{width:160px;padding:14px;font-size:32px;text-align:center;letter-spacing:12px;border:2px solid #ddd;border-radius:12px;outline:none}
+#pin-input:focus{border-color:#4a90d9}
+
+/* === Buttons === */
+.btn-primary{min-height:50px;padding:14px 32px;font-size:18px;font-weight:600;color:#fff;background:#4a90d9;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;transition:background .2s,transform .1s}
+.btn-primary:active{transform:scale(.97);background:#3a7bc8}.btn-primary:disabled{background:#bbb;cursor:not-allowed}
+.btn-secondary{min-height:46px;padding:12px 20px;font-size:15px;font-weight:500;color:#4a90d9;background:#fff;border:2px solid #4a90d9;border-radius:12px;cursor:pointer;touch-action:manipulation;transition:background .2s,transform .1s}
+.btn-secondary:active{transform:scale(.97);background:#e8f4fd}
+.btn-danger{min-height:46px;padding:12px 20px;font-size:15px;font-weight:500;color:#e74c3c;background:#fff;border:2px solid #e74c3c;border-radius:12px;cursor:pointer;touch-action:manipulation}
+.btn-danger:active{background:#fdecea}
+.btn-link{background:none;border:none;color:#4a90d9;font-size:15px;cursor:pointer;padding:8px 12px;touch-action:manipulation}
+.btn-link:active{opacity:.6}
+.btn-ctrl{min-height:42px;padding:8px 14px;font-size:13px;font-weight:600;color:#4a90d9;background:#fff;border:1.5px solid #4a90d9;border-radius:10px;cursor:pointer;touch-action:manipulation}
+.btn-ctrl:active{background:#e8f4fd}
+.hidden{display:none!important}
+
+/* === Learner Dashboard === */
+.learner-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}
+.balance-card{background:linear-gradient(135deg,#4CAF50,#66bb6a);color:#fff;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 12px rgba(76,175,80,.3)}
+.balance-label{font-size:14px;opacity:.9;margin-bottom:4px}.balance-amount{font-size:36px;font-weight:700}
+.section-heading{font-size:16px;font-weight:600;color:#666;padding:0 4px}
+.lesson-list{display:flex;flex-direction:column;gap:10px}
+.empty-state{text-align:center;color:#999;padding:32px 16px;font-size:15px}
+
+/* Lesson card */
+.lesson-card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:8px;cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.lesson-card:active{transform:scale(.98)}
+.lesson-card-header{display:flex;justify-content:space-between;align-items:center}
+.lesson-card-name{font-size:17px;font-weight:600;color:#2c3e50}
+.lesson-card-badge{font-size:12px;font-weight:600;padding:3px 8px;border-radius:8px;white-space:nowrap}
+.badge-new{background:#e8f8e8;color:#2d7a3a}.badge-done{background:#e8f0fd;color:#4a90d9}
+.phrase-preview{display:flex;flex-wrap:wrap;gap:6px}
+.phrase-pill{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;background:#f5f0eb;border-radius:8px;font-size:16px;color:#2c3e50}
+.char-pill{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:#f5f0eb;border-radius:8px;font-size:18px;color:#2c3e50}
+.lesson-card-reward{font-size:14px;color:#4CAF50;font-weight:500}
+
+/* === Parent Dashboard === */
+.parent-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}
+.parent-stats{display:flex;gap:8px}
+.stat-item{flex:1;background:#fff;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+.stat-value{font-size:20px;font-weight:700;color:#2c3e50}.stat-label{font-size:11px;color:#888;margin-top:2px}
+.parent-actions{display:flex;align-items:center;gap:12px}.parent-actions .btn-primary{flex:1}
+.lesson-card-stats{display:flex;gap:12px;font-size:13px;color:#888}
+
+/* === Forms === */
+.form-container{padding:24px;display:flex;flex-direction:column;gap:12px}
+.form-label{font-size:14px;font-weight:600;color:#555}
+.form-container input[type="text"],.form-container input[type="password"],.form-container textarea{width:100%;padding:12px 14px;font-size:18px;border:2px solid #ddd;border-radius:12px;outline:none;font-family:inherit}
+.form-container textarea{font-size:16px;resize:vertical}
+.form-container input:focus,.form-container textarea:focus{border-color:#4a90d9}
+.char-count{font-size:13px;color:#888}.error{color:#e74c3c;font-size:14px}
+.form-buttons{display:flex;gap:12px;margin-top:8px}.form-buttons .btn-primary{flex:1}.form-buttons .btn-secondary{flex:0 0 auto}
+
+/* === Lesson Review === */
+.review-container{padding:16px;display:flex;flex-direction:column;gap:16px}
+.review-header{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.review-name{font-size:20px;font-weight:700;color:#2c3e50;margin-bottom:8px}
+.completions-list{display:flex;flex-direction:column;gap:8px}
+.completion-item{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:8px}
+.completion-row{display:flex;align-items:center;justify-content:space-between}
+.completion-note-input{width:100%;font-size:13px;color:#555;padding:8px 10px;background:#f8f5f0;border:1px solid #e8e0d0;border-radius:8px;outline:none;font-family:inherit}
+.completion-note-input:focus{border-color:#4a90d9;background:#fff}
+.completion-info{display:flex;flex-direction:column;gap:2px}
+.completion-date{font-size:14px;font-weight:500;color:#333}.completion-detail{font-size:12px;color:#888}
+.completion-reward{display:flex;align-items:center;gap:8px}
+.reward-amount{font-size:16px;font-weight:600;color:#4CAF50;white-space:nowrap}
+.claim-checkbox{width:24px;height:24px;accent-color:#4CAF50;cursor:pointer}
+.completion-item.claimed{opacity:.6}.completion-item.claimed .reward-amount{text-decoration:line-through;color:#999}
+.review-actions{display:flex;gap:12px;margin-top:8px}.review-actions button{flex:1}
+
+/* === Section Menu === */
+.section-menu-container{padding:16px;display:flex;flex-direction:column;gap:16px}
+.section-menu-header{text-align:center;padding:12px 0}
+.section-menu-score{font-size:28px;font-weight:700;color:#e67e22}
+.section-menu-list{display:flex;flex-direction:column;gap:12px}
+.section-menu-card{display:flex;align-items:center;gap:14px;background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.section-menu-card:active{transform:scale(.98)}
+.section-menu-card.locked{opacity:.5;cursor:not-allowed;pointer-events:none}
+.section-menu-card.done{border-left:4px solid #4CAF50}
+.section-menu-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:18px;flex-shrink:0}
+.section-menu-card.locked .section-menu-icon{background:#eee;color:#aaa}
+.section-menu-card.unlocked .section-menu-icon{background:#e8f4fd;color:#4a90d9}
+.section-menu-card.done .section-menu-icon{background:#e8f8e8;color:#4CAF50}
+.section-menu-info{flex:1}
+.section-menu-name{font-size:17px;font-weight:600;color:#2c3e50}
+.section-menu-desc{font-size:13px;color:#888;margin-top:2px}
+.section-menu-points{font-size:15px;font-weight:600;color:#e67e22;white-space:nowrap}
+.section-menu-footer{margin-top:8px}
+#confetti-container-menu{position:fixed;inset:0;pointer-events:none;z-index:200}
+
+/* === Phrase Inputs (Lesson Creation) === */
+.phrase-inputs-container{display:flex;flex-direction:column;gap:8px}
+.phrase-input-row{display:flex;gap:8px;align-items:center}
+.phrase-input-row .phrase-field{flex:1;padding:12px 14px;font-size:18px;border:2px solid #ddd;border-radius:12px;outline:none;font-family:inherit}
+.phrase-input-row .phrase-field:focus{border-color:#4a90d9}
+.btn-remove-phrase{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:1.5px solid #e74c3c;border-radius:50%;color:#e74c3c;font-size:20px;cursor:pointer;touch-action:manipulation}
+.btn-remove-phrase:active{background:#fdecea}
+.btn-add-phrase{align-self:flex-start;background:none;border:none;color:#4a90d9;font-size:15px;font-weight:600;cursor:pointer;padding:8px 0;touch-action:manipulation}
+.btn-add-phrase:active{opacity:.6}
+
+/* === Practice Screen === */
+#screen-practice{background:#f8f5f0}
+
+/* Section label */
+#section-tabs{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #eee;padding:10px 8px}
+.section-tab-label{font-size:15px;font-weight:600;color:#4a90d9;text-align:center}
+
+/* Phrase bar */
+#phrase-bar{display:flex;flex-shrink:0;justify-content:space-between;align-items:center;padding:8px 14px;min-height:52px;background:#fafafa;font-size:13px;color:#666}
+#phrase-progress{flex:0 0 auto;white-space:nowrap}
+#phrase-chars-display{flex:1;display:flex;justify-content:center;gap:2px;align-items:center;min-height:36px}
+.phrase-char-hw{width:36px;height:36px;flex:0 0 36px;position:relative;overflow:visible;opacity:.35;transition:opacity .2s}
+.phrase-char-hw svg{display:block;width:36px;height:36px}
+.phrase-char-hw.active{opacity:1}
+#practice-score{flex:0 0 auto;font-weight:600;color:#e67e22;white-space:nowrap}
+
+/* Reference area */
+#ref-area{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 12px;background:#fff}
+#ref-char-container{display:flex;align-items:center;justify-content:center;background:#fafafa;border:2px solid #eee;border-radius:12px;padding:4px}
+#ref-info{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+#pinyin-display{font-size:16px;font-weight:600;color:#e67e22}
+#meaning-display{font-size:12px;color:#555;max-width:140px;line-height:1.3}
+.btn-speak{width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f4fd;border:none;border-radius:50%;color:#4a90d9;cursor:pointer;touch-action:manipulation}
+.btn-speak:active{transform:scale(.9);background:#d0e8f7}
+
+/* Tingxie area */
+#tingxie-area{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px 16px;background:#fff}
+.tingxie-chars-display{display:flex;justify-content:center;gap:6px;align-items:center;flex-wrap:wrap}
+.tingxie-char-box{width:44px;height:44px;border:2px dashed #ccc;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color .2s,background .2s}
+.tingxie-char-box.active{border-color:#4a90d9;border-style:solid;background:#f0f7ff}
+.tingxie-char-box.completed{border-color:#4CAF50;border-style:solid;background:#f0fff0}
+.tingxie-char-box svg{display:block;width:40px;height:40px}
+.btn-speak-large{width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:#e8f4fd;border:2px solid #4a90d9;border-radius:50%;color:#4a90d9;cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.btn-speak-large:active{transform:scale(.92);background:#d0e8f7}
+.tingxie-hint{font-size:13px;color:#888}
+
+/* Progress info */
+#progress-info{display:flex;justify-content:center;gap:16px;padding:4px 12px;font-size:13px;color:#666}
+#attempt-display{font-weight:600;color:#4a90d9}
+#char-progress-display{font-weight:500}
+
+/* Practice bottom */
+#practice-bottom{flex:1;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none;padding:6px}
+#quiz-writer-target{touch-action:none;border:2px solid #ddd;border-radius:16px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center}
+#feedback-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;border-radius:16px;z-index:10}
+#feedback-overlay.flash-red{display:flex!important;background:rgba(231,76,60,.15);animation:flash .4s ease-out forwards}
+#feedback-overlay.flash-green{display:flex!important;background:rgba(76,175,80,.15);animation:flash .4s ease-out forwards}
+
+/* Controls */
+#practice-controls{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;justify-content:center;background:#fff;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
+
+/* Dialogs */
+.dialog{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100}
+.dialog-content{background:#fff;border-radius:20px;padding:28px 22px;text-align:center;display:flex;flex-direction:column;gap:12px;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.dialog-content p{font-size:18px;font-weight:600;color:#2c3e50}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:90;pointer-events:none}
+.overlay-text{font-size:48px;font-weight:700;color:#4CAF50;text-shadow:0 2px 8px rgba(0,0,0,.1);animation:pop-in .6s ease-out forwards}
+
+/* === Reward === */
+.reward-container{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px;position:relative;overflow:hidden}
+.reward-container h1{font-size:32px;color:#2c3e50}
+.score-summary{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center;font-size:15px;line-height:1.8}
+.score-big{font-size:36px;font-weight:700;color:#e67e22}
+.tv-time{font-size:24px;font-weight:700;color:#4CAF50}.tv-total{font-size:16px;color:#666}
+
+/* === Animations === */
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.shake{animation:shake .4s ease-out}
+@keyframes pop-in{0%{transform:scale(.3);opacity:0}50%{transform:scale(1.2);opacity:1}100%{transform:scale(1);opacity:1}}
+#confetti-container{position:fixed;inset:0;pointer-events:none;z-index:200}
+.confetti-piece{position:fixed;top:-10px;left:var(--x);width:10px;height:10px;background:var(--color);border-radius:2px;animation:confetti-fall 2.5s ease-in var(--delay) forwards}
+@keyframes confetti-fall{0%{transform:translateY(0) translateX(0) rotate(0);opacity:1}100%{transform:translateY(110vh) translateX(var(--drift)) rotate(720deg);opacity:0}}
+
+/* === Landscape === */
+.landscape-overlay{display:none;position:fixed;inset:0;background:#f8f5f0;z-index:9999;align-items:center;justify-content:center}
+.landscape-msg{text-align:center;font-size:20px;color:#666;padding:24px}
+@media(orientation:landscape)and (max-height:500px){.landscape-overlay{display:flex}}
+@media(max-height:600px){#practice-controls{padding:6px 8px}#ref-area{padding:6px 8px}.balance-card{padding:14px}.balance-amount{font-size:28px}}
