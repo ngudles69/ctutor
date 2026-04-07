@@ -152,7 +152,7 @@ const $ = id => document.getElementById(id);
 const els = {
   topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnModeSwitch:$('btn-mode-switch'),
   btnEnterLearner:$('btn-enter-learner'), btnEnterParent:$('btn-enter-parent'),
-  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), importFileInput:$('import-file-input'),
+  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), btnTestSpeech:$('btn-test-speech'), importFileInput:$('import-file-input'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   balanceAmount:$('balance-amount'), lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
@@ -197,6 +197,7 @@ function init() {
   els.btnExportData.addEventListener('click', exportData);
   els.btnImportData.addEventListener('click', () => els.importFileInput.click());
   els.importFileInput.addEventListener('change', importData);
+  els.btnTestSpeech.addEventListener('click', testSpeech);
   els.btnBack.addEventListener('click', navBack);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
@@ -1129,21 +1130,53 @@ function ensureVoices() {
     speechSynthesis.addEventListener('voiceschanged', () => { voicesReady=true; r(); }, {once:true});
   });
 }
-async function speakText(text) {
-  if (!('speechSynthesis' in window) || !text) return;
-  if (!voicesReady) await ensureVoices();
-  // Only cancel if currently speaking (avoid Chrome bug where cancel+speak fails)
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
-    speechSynthesis.cancel();
-    await new Promise(r => setTimeout(r, 50));
+function testSpeech() {
+  if (!('speechSynthesis' in window)) {
+    alert('speechSynthesis API is NOT available in this browser');
+    return;
   }
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1; u.pitch = 1;
-  const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('zh'));
-  if (v) u.voice = v;
-  // Resume in case Chrome paused the synthesis
-  if (speechSynthesis.paused) speechSynthesis.resume();
-  speechSynthesis.speak(u);
+  const voices = speechSynthesis.getVoices();
+  const zhVoices = voices.filter(v => v.lang.startsWith('zh'));
+  let report = 'Total voices: ' + voices.length + '\n';
+  report += 'Chinese voices: ' + zhVoices.length + '\n';
+  if (zhVoices.length > 0) {
+    report += '\nFirst few Chinese voices:\n';
+    zhVoices.slice(0, 5).forEach(v => { report += '  - ' + v.name + ' (' + v.lang + ')\n'; });
+  }
+  report += '\nspeaking: ' + speechSynthesis.speaking + '\n';
+  report += 'paused: ' + speechSynthesis.paused + '\n';
+  report += 'pending: ' + speechSynthesis.pending + '\n';
+  alert(report);
+
+  // Try to speak
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('\u4F60\u597D');
+    u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1;
+    if (zhVoices[0]) u.voice = zhVoices[0];
+    u.onstart = () => console.log('Speech started');
+    u.onend = () => console.log('Speech ended');
+    u.onerror = (e) => alert('Speech error: ' + e.error);
+    speechSynthesis.speak(u);
+  } catch (e) {
+    alert('Speech threw exception: ' + e.message);
+  }
+}
+
+function speakText(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1; u.pitch = 1;
+    const voices = speechSynthesis.getVoices();
+    const v = voices.find(v => v.lang.startsWith('zh'));
+    if (v) u.voice = v;
+    if (speechSynthesis.paused) speechSynthesis.resume();
+    speechSynthesis.speak(u);
+  } catch (e) {
+    console.warn('Speech failed:', e);
+  }
 }
 
 // ============================================
