@@ -111,6 +111,7 @@ const state = {
   roundNum: 1,
   guidedTotal: 3,
   isAnimating: false,
+  charAttempts: 0,       // failed attempts on current char (for fail dialog)
   // Section menu scoring
   sectionScores: { guided: 0, free: 0, tingxie: 0, bonus: 0 },
   completedSections: [],       // array of completed section IDs (serializable)
@@ -717,6 +718,7 @@ function revealTingxieChar(charIdx) {
 function startCharacter() {
   const sec = getActiveSection();
   const char = getCurrentChar();
+  state.charAttempts = 0;
 
   updatePracticeUI();
   updateCharDetails();
@@ -753,6 +755,7 @@ function createQuizWriter(char, showOutline) {
     highlightColor: '#aaf',
     showHintAfterMisses: showOutline ? 3 : false,
     highlightOnComplete: false,
+    leniency: 1.5,
   });
 
   state.quizWriter.quiz({
@@ -784,6 +787,22 @@ function onCharComplete(data) {
     revealTingxieChar(state.currentCharIdx);
   }
 
+  // Free trace: show fail dialog if too many mistakes (auto-skip after 3 fails)
+  if (!isGuided && !sec.perCharScoring && data.totalMistakes > MAX_MISTAKES_UNGUIDED) {
+    state.charAttempts++;
+    if (state.charAttempts >= 3) {
+      // Auto-skip after 3 failed attempts
+      state.isAnimating = false;
+      state.charAttempts = 0;
+      advanceAfterChar();
+      return;
+    }
+    state.isAnimating = false;
+    els.failDialog.classList.remove('hidden');
+    return;
+  }
+
+  state.charAttempts = 0;
   showSuccessFlash(sec.perCharScoring ? '' : 'Nice!', () => {
     state.isAnimating = false;
     advanceAfterChar();
