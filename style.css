@@ -92,14 +92,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .completion-item.claimed{opacity:.6}.completion-item.claimed .reward-amount{text-decoration:line-through;color:#999}
 .review-actions{display:flex;gap:12px;margin-top:8px}.review-actions button{flex:1}
 
+/* === Section Menu === */
+.section-menu-container{padding:16px;display:flex;flex-direction:column;gap:16px}
+.section-menu-header{text-align:center;padding:12px 0}
+.section-menu-score{font-size:28px;font-weight:700;color:#e67e22}
+.section-menu-list{display:flex;flex-direction:column;gap:12px}
+.section-menu-card{display:flex;align-items:center;gap:14px;background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.section-menu-card:active{transform:scale(.98)}
+.section-menu-card.locked{opacity:.5;cursor:not-allowed;pointer-events:none}
+.section-menu-card.done{border-left:4px solid #4CAF50}
+.section-menu-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:18px;flex-shrink:0}
+.section-menu-card.locked .section-menu-icon{background:#eee;color:#aaa}
+.section-menu-card.unlocked .section-menu-icon{background:#e8f4fd;color:#4a90d9}
+.section-menu-card.done .section-menu-icon{background:#e8f8e8;color:#4CAF50}
+.section-menu-info{flex:1}
+.section-menu-name{font-size:17px;font-weight:600;color:#2c3e50}
+.section-menu-desc{font-size:13px;color:#888;margin-top:2px}
+.section-menu-points{font-size:15px;font-weight:600;color:#e67e22;white-space:nowrap}
+.section-menu-footer{margin-top:8px}
+#confetti-container-menu{position:fixed;inset:0;pointer-events:none;z-index:200}
+
+/* === Phrase Inputs (Lesson Creation) === */
+.phrase-inputs-container{display:flex;flex-direction:column;gap:8px}
+.phrase-input-row{display:flex;gap:8px;align-items:center}
+.phrase-input-row .phrase-field{flex:1;padding:12px 14px;font-size:18px;border:2px solid #ddd;border-radius:12px;outline:none;font-family:inherit}
+.phrase-input-row .phrase-field:focus{border-color:#4a90d9}
+.btn-remove-phrase{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:1.5px solid #e74c3c;border-radius:50%;color:#e74c3c;font-size:20px;cursor:pointer;touch-action:manipulation}
+.btn-remove-phrase:active{background:#fdecea}
+.btn-add-phrase{align-self:flex-start;background:none;border:none;color:#4a90d9;font-size:15px;font-weight:600;cursor:pointer;padding:8px 0;touch-action:manipulation}
+.btn-add-phrase:active{opacity:.6}
+
 /* === Practice Screen === */
 #screen-practice{background:#f8f5f0}
 
-/* Section tabs */
-#section-tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid #eee;padding:0 8px}
-.section-tab{flex:1;text-align:center;padding:10px 4px;font-size:13px;font-weight:600;color:#aaa;border-bottom:3px solid transparent;transition:color .2s}
-.section-tab.active{color:#4a90d9;border-bottom-color:#4a90d9}
-.section-tab.completed{color:#4CAF50}
+/* Section label */
+#section-tabs{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #eee;padding:10px 8px}
+.section-tab-label{font-size:15px;font-weight:600;color:#4a90d9;text-align:center}
 
 /* Phrase bar */
 #phrase-bar{display:flex;flex-shrink:0;justify-content:space-between;align-items:center;padding:8px 14px;min-height:52px;background:#fafafa;font-size:13px;color:#666}

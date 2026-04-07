@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -86,8 +86,9 @@
     <div class="form-container">
       <label class="form-label" for="lesson-name-input">Lesson Name</label>
       <input type="text" id="lesson-name-input" placeholder="e.g. Family Members" autocomplete="off">
-      <label class="form-label" for="lesson-phrases-input">Phrases (1-20, separated by spaces, commas, or new lines)</label>
-      <textarea id="lesson-phrases-input" rows="4" placeholder="e.g. 你好, 世界, 学习中文" lang="zh"></textarea>
+      <label class="form-label">Phrases (1-20)</label>
+      <div id="phrase-inputs-container" class="phrase-inputs-container"></div>
+      <button id="btn-add-phrase" class="btn-add-phrase" type="button">+ Add another phrase</button>
       <div id="lesson-phrase-count" class="char-count">0 / 20 phrases</div>
       <div id="lesson-phrase-preview" class="phrase-preview"></div>
       <div id="lesson-error" class="error hidden"></div>
@@ -132,9 +133,23 @@
     </div>
   </div>
 
+  <!-- SCREEN: Section Menu -->
+  <div id="screen-section-menu" class="screen hidden">
+    <div class="section-menu-container">
+      <div class="section-menu-header">
+        <div id="section-menu-score" class="section-menu-score">0 / 100</div>
+      </div>
+      <div id="section-menu-list" class="section-menu-list"></div>
+      <div class="section-menu-footer">
+        <button id="btn-complete-lesson" class="btn-primary" disabled>Complete Lesson</button>
+      </div>
+    </div>
+    <div id="confetti-container-menu"></div>
+  </div>
+
   <!-- SCREEN: Practice -->
   <div id="screen-practice" class="screen hidden">
-    <!-- Section tabs -->
+    <!-- Section label -->
     <div id="section-tabs"></div>
 
     <!-- Phrase info bar: progress left, phrase center, score right -->
@@ -217,6 +232,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
