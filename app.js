@@ -1094,7 +1094,7 @@ async function speakText(text) {
   speechSynthesis.cancel();
   if (!voicesReady) await ensureVoices();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN'; u.rate = 0.8;
+  u.lang = 'zh-CN'; u.rate = 0.8; u.volume = 1; u.pitch = 1;
   const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('zh'));
   if (v) u.voice = v;
   speechSynthesis.speak(u);
