@@ -80,15 +80,15 @@ const Storage = {
     comp.id = 'c_' + Date.now(); comp.date = Date.now();
     l.completions.push(comp); this._save(); return comp;
   },
-  markClaimed(lessonId, compId, claimed, note) {
+  markClaimed(lessonId, compId, claimed) {
     const l = this.getLesson(lessonId); if (!l) return;
     const c = l.completions.find(x => x.id === compId);
-    if (c) {
-      c.claimed = claimed;
-      if (claimed) c.note = note || '';
-      else delete c.note;
-      this._save();
-    }
+    if (c) { c.claimed = claimed; this._save(); }
+  },
+  setCompletionNote(lessonId, compId, note) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    const c = l.completions.find(x => x.id === compId);
+    if (c) { c.note = note; this._save(); }
   },
   getUnclaimedBalance() {
     return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
@@ -426,24 +426,21 @@ function renderLessonReview() {
     const d = new Date(comp.date);
     const item = document.createElement('div');
     item.className = 'completion-item' + (comp.claimed ? ' claimed' : '');
-    const noteHtml = comp.claimed && comp.note
-      ? '<div class="completion-note">\u201C' + esc(comp.note) + '\u201D</div>'
-      : '';
     item.innerHTML =
       '<div class="completion-row">' +
       '<div class="completion-info"><div class="completion-date">' + d.toLocaleDateString() + '</div>' +
       '<div class="completion-detail">Score: ' + (comp.score||0) + '/100 &middot; ' + comp.tvEarned + ' min TV</div></div>' +
       '<div class="completion-reward"><span class="reward-amount">' + comp.tvEarned + ' min</span>' +
       '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>' +
-      '</div>' + noteHtml;
+      '</div>' +
+      '<input type="text" class="completion-note-input" placeholder="Add a note...">';
+    const noteInput = item.querySelector('.completion-note-input');
+    noteInput.value = comp.note || '';
+    noteInput.addEventListener('input', function() {
+      Storage.setCompletionNote(state.currentLessonId, comp.id, this.value);
+    });
     item.querySelector('.claim-checkbox').addEventListener('change', function() {
-      if (this.checked) {
-        const note = prompt('Add a note for this claimed reward (optional):', '');
-        if (note === null) { this.checked = false; return; }
-        Storage.markClaimed(state.currentLessonId, comp.id, true, note);
-      } else {
-        Storage.markClaimed(state.currentLessonId, comp.id, false);
-      }
+      Storage.markClaimed(state.currentLessonId, comp.id, this.checked);
       renderLessonReview();
     });
     els.reviewCompletions.appendChild(item);
