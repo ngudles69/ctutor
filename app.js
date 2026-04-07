@@ -708,6 +708,9 @@ function startPhrase() {
   renderTingxieBoxes();
   updatePracticeUI();
   startCharacter();
+
+  // Auto-speak the full phrase at the start of each phrase
+  speakText(getCurrentPhrase());
 }
 
 function renderPhraseWriters() {
@@ -787,9 +790,6 @@ function startCharacter() {
 
   updatePracticeUI();
   updateCharDetails();
-
-  // Auto-speak the full phrase whenever a new character is shown
-  speakText(getCurrentPhrase());
 
   // Reference area
   if (sec.showRef) {
@@ -895,18 +895,26 @@ function onRoundComplete() {
     state.tingxieResults[getCurrentPhraseIdx()] = state.tingxieCharResults.slice();
   }
 
-  if (sec.id === 'guided' || sec.id === 'revision') {
-    if (state.roundNum < state.guidedTotal) {
-      state.roundNum++;
-      state.currentCharIdx = 0;
-      destroyWriters();
-      startCharacter();
+  // Phrase just finished — celebrate with confetti + 1s pause
+  state.isAnimating = true;
+  launchConfetti(els.confettiContainer);
+  setTimeout(() => {
+    state.isAnimating = false;
+    if (sec.id === 'guided' || sec.id === 'revision') {
+      if (state.roundNum < state.guidedTotal) {
+        state.roundNum++;
+        state.currentCharIdx = 0;
+        destroyWriters();
+        startCharacter();
+        // Speak the phrase again at the start of the new round
+        speakText(getCurrentPhrase());
+      } else {
+        advancePhrase();
+      }
     } else {
       advancePhrase();
     }
-  } else {
-    advancePhrase();
-  }
+  }, 1000);
 }
 
 function advancePhrase() {
