@@ -20,9 +20,16 @@ const SECTIONS = [
   },
 ];
 
-const REVISION_SECTION = {
-  id: 'revision', name: 'Revision', desc: 'Review wrong characters',
-  rounds: 3, showOutline: true, showRef: true,
+// Revision sublessons are dynamically constructed; each tingxie failure creates
+// one guided + one free sublesson, both 1 round, for the failed phrases.
+const REVISION_GUIDED_BASE = {
+  desc: 'Review wrong characters (guided)',
+  rounds: 1, showOutline: true, showRef: true,
+  controls: ['restart', 'animate', 'skip'],
+};
+const REVISION_FREE_BASE = {
+  desc: 'Review wrong characters (free)',
+  rounds: 1, showOutline: false, showRef: true,
   controls: ['restart', 'animate', 'skip'],
 };
 
@@ -104,6 +111,17 @@ const Storage = {
     delete l.progress;
     this._save();
   },
+  addAttemptStats(lessonId, stats) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    if (!l.attempts) l.attempts = [];
+    l.attempts.push(stats);
+    this._save();
+  },
+  clearAttempts(lessonId) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    delete l.attempts;
+    this._save();
+  },
   getUnclaimedBalance() {
     return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
   },
@@ -134,9 +152,11 @@ const state = {
   // Section menu scoring
   sectionScores: { guided: 0, free: 0, tingxie: 0, bonus: 0 },
   completedSections: [],       // array of completed section IDs (serializable)
-  revisionPhrases: [],         // phrase indices wrong in tingxie
+  revisionAttempts: [],        // [{ phrases: [phraseIdx,...] }] — each tingxie failure adds one
   tingxieResults: {},          // { phraseIdx: [bool, bool, ...] }
   tingxieCharResults: [],      // boolean per char for current phrase
+  // Per-attempt stats (for parent review)
+  attemptStats: null,          // { sectionId, sectionName, totalChars: 0, totalMistakes: 0 }
   // Writers
   refWriter: null, quizWriter: null, phraseWriters: [],
   dictCache: {},
@@ -167,6 +187,7 @@ const els = {
   lessonPhraseCount:$('lesson-phrase-count'), lessonPhrasePreview:$('lesson-phrase-preview'),
   lessonError:$('lesson-error'), btnSaveLesson:$('btn-save-lesson'), btnCancelLesson:$('btn-cancel-lesson'),
   reviewName:$('review-name'), reviewPhrases:$('review-phrases'),
+  reviewAttempts:$('review-attempts'), noAttempts:$('no-attempts'),
   reviewCompletions:$('review-completions'), noCompletions:$('no-completions'),
   btnEditLesson:$('btn-edit-lesson'), btnDeleteLesson:$('btn-delete-lesson'),
   currentPinInput:$('current-pin-input'), newPinInput:$('new-pin-input'), confirmPinInput:$('confirm-pin-input'),
@@ -448,6 +469,29 @@ function renderLessonReview() {
   const l = Storage.getLesson(state.currentLessonId); if (!l) return;
   els.reviewName.textContent = l.name;
   els.reviewPhrases.innerHTML = l.phrases.map(p => '<span class="phrase-pill">' + esc(p) + '</span>').join('');
+
+  // Practice attempts
+  els.reviewAttempts.innerHTML = '';
+  const attempts = l.attempts || [];
+  els.noAttempts.classList.toggle('hidden', attempts.length > 0);
+  // Show newest first
+  attempts.slice().reverse().forEach(att => {
+    const d = new Date(att.timestamp);
+    const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    const skipped = att.skipped || 0;
+    const mistakes = att.totalMistakes || 0;
+    const chars = att.totalChars || 0;
+    const status = (mistakes === 0 && skipped === 0) ? 'ok' : 'miss';
+    const item = document.createElement('div');
+    item.className = 'attempt-item';
+    item.innerHTML =
+      '<div><div class="attempt-name">' + esc(att.sectionName) + '</div>' +
+      '<div class="attempt-meta">' + dateStr + '</div></div>' +
+      '<div class="attempt-stats">' + chars + ' chars &middot; ' +
+      '<span class="' + status + '">' + mistakes + ' miss' + (skipped ? ' &middot; ' + skipped + ' skip' : '') + '</span></div>';
+    els.reviewAttempts.appendChild(item);
+  });
+
   els.reviewCompletions.innerHTML = '';
   els.noCompletions.classList.toggle('hidden', l.completions.length > 0);
   l.completions.forEach((comp) => {
@@ -682,22 +726,46 @@ function computeSectionStatus() {
   s.guided = done('guided') ? 'done' : 'unlocked';
   s.free = done('guided') ? (done('free') ? 'done' : 'unlocked') : 'locked';
   s.tingxie = done('free') ? (done('tingxie') ? 'done' : 'unlocked') : 'locked';
-  // Revision only if tingxie done AND there were errors
-  if (done('tingxie') && state.revisionPhrases.length > 0) {
-    s.revision = done('revision') ? 'done' : 'unlocked';
-  }
+  // Each revision attempt produces a guided + free sublesson
+  state.revisionAttempts.forEach((att, i) => {
+    const gid = 'revision-' + i + '-guided';
+    const fid = 'revision-' + i + '-free';
+    // Guided unlocks once tingxie is done
+    if (done('tingxie')) {
+      s[gid] = done(gid) ? 'done' : 'unlocked';
+      s[fid] = done(gid) ? (done(fid) ? 'done' : 'unlocked') : 'locked';
+    } else {
+      s[gid] = 'locked';
+      s[fid] = 'locked';
+    }
+  });
   return s;
 }
 
 function canCompleteLesson() {
   const s = computeSectionStatus();
   const base = s.guided === 'done' && s.free === 'done' && s.tingxie === 'done';
-  const rev = !s.revision || s.revision === 'done';
-  return base && rev;
+  if (!base) return false;
+  // Tingxie must have been awarded full points (which only happens when all
+  // pending revisions at award time are done, or tingxie was perfect)
+  if (state.sectionScores.tingxie < SECTION_SCORES.tingxie) return false;
+  return true;
 }
 
 function calcTotalScore() {
   return state.sectionScores.guided + state.sectionScores.free + state.sectionScores.tingxie + state.sectionScores.bonus;
+}
+
+function getRevisionSection(attemptIdx, type) {
+  const att = state.revisionAttempts[attemptIdx];
+  if (!att) return null;
+  const base = type === 'guided' ? REVISION_GUIDED_BASE : REVISION_FREE_BASE;
+  return Object.assign({}, base, {
+    id: 'revision-' + attemptIdx + '-' + type,
+    name: 'Revision ' + (attemptIdx + 1) + ' \u00b7 ' + (type === 'guided' ? 'Guided' : 'Free'),
+    _revisionAttemptIdx: attemptIdx,
+    _revisionType: type,
+  });
 }
 
 function renderSectionMenu() {
@@ -705,10 +773,14 @@ function renderSectionMenu() {
   els.sectionMenuScore.textContent = calcTotalScore() + ' / 100';
 
   els.sectionMenuList.innerHTML = '';
-  const sections = SECTIONS.slice();
-  if (status.revision) sections.push(REVISION_SECTION);
+  const cards = SECTIONS.map(sec => ({ sec: sec, isRevision: false }));
+  state.revisionAttempts.forEach((att, i) => {
+    cards.push({ sec: getRevisionSection(i, 'guided'), isRevision: true, attemptIdx: i });
+    cards.push({ sec: getRevisionSection(i, 'free'), isRevision: true, attemptIdx: i });
+  });
 
-  sections.forEach(sec => {
+  cards.forEach(item => {
+    const sec = item.sec;
     const st = status[sec.id] || 'locked';
     const card = document.createElement('div');
     card.className = 'section-menu-card ' + st;
@@ -719,8 +791,9 @@ function renderSectionMenu() {
     if (st === 'done') icon = '\u2714'; // checkmark
 
     let pts = '\u2014';
-    if (sec.id === 'revision') {
-      pts = state.revisionPhrases.length + ' phrases';
+    if (item.isRevision) {
+      const att = state.revisionAttempts[item.attemptIdx];
+      pts = att.phrases.length + ' phrases';
     } else if (st === 'done') {
       pts = state.sectionScores[sec.id] + ' pts';
     } else {
@@ -746,8 +819,14 @@ function renderSectionMenu() {
 // PRACTICE - SECTION PIPELINE
 // ============================================
 function getActiveSection() {
-  if (state.activeSectionId === 'revision') return REVISION_SECTION;
-  return SECTIONS.find(s => s.id === state.activeSectionId);
+  const id = state.activeSectionId;
+  if (!id) return null;
+  if (id.indexOf('revision-') === 0) {
+    const m = id.match(/^revision-(\d+)-(guided|free)$/);
+    if (!m) return null;
+    return getRevisionSection(parseInt(m[1]), m[2]);
+  }
+  return SECTIONS.find(s => s.id === id);
 }
 function getCurrentPhrase() { return state.phrases[state.phraseOrder[state.phraseOrderIdx]]; }
 function getCurrentChar() { return getCurrentPhrase()[state.currentCharIdx]; }
@@ -763,12 +842,12 @@ async function startLesson(lessonId) {
   if (saved) {
     state.sectionScores = saved.sectionScores || { guided: 0, free: 0, tingxie: 0, bonus: 0 };
     state.completedSections = saved.completedSections || [];
-    state.revisionPhrases = saved.revisionPhrases || [];
+    state.revisionAttempts = saved.revisionAttempts || [];
     state.tingxieResults = saved.tingxieResults || {};
   } else {
     state.sectionScores = { guided: 0, free: 0, tingxie: 0, bonus: 0 };
     state.completedSections = [];
-    state.revisionPhrases = [];
+    state.revisionAttempts = [];
     state.tingxieResults = {};
   }
   state.activeSectionId = null;
@@ -786,7 +865,7 @@ function persistLessonProgress() {
   Storage.saveLessonProgress(state.currentLessonId, {
     sectionScores: state.sectionScores,
     completedSections: state.completedSections,
-    revisionPhrases: state.revisionPhrases,
+    revisionAttempts: state.revisionAttempts,
     tingxieResults: state.tingxieResults,
   });
 }
@@ -796,8 +875,9 @@ function enterSection(sectionId) {
   const sec = getActiveSection();
 
   // Build phrase order
-  if (sectionId === 'revision') {
-    state.phraseOrder = state.revisionPhrases.slice();
+  if (sec._revisionAttemptIdx !== undefined) {
+    const att = state.revisionAttempts[sec._revisionAttemptIdx];
+    state.phraseOrder = att.phrases.slice();
   } else {
     state.phraseOrder = state.phrases.map((_, i) => i);
     if (sec.randomize) {
@@ -814,6 +894,16 @@ function enterSection(sectionId) {
     state.tingxieResults = {};
   }
 
+  // Initialize per-attempt stats for parent review
+  state.attemptStats = {
+    sectionId: sectionId,
+    sectionName: sec.name,
+    timestamp: Date.now(),
+    totalChars: 0,
+    totalMistakes: 0,
+    skipped: 0,
+  };
+
   const lesson = Storage.getLesson(state.currentLessonId);
   navigateTo('practice', lesson.name);
   renderSectionLabel();
@@ -828,23 +918,29 @@ function renderSectionLabel() {
 
 function exitSection() {
   const sectionId = state.activeSectionId;
+  const isRevision = sectionId.indexOf('revision-') === 0;
 
   // Mark completed (if not already)
   if (!state.completedSections.includes(sectionId)) {
     state.completedSections.push(sectionId);
   }
 
-  // Award score (one-time)
+  // Save the attempt stats record on the lesson for parent review
+  if (state.attemptStats) {
+    Storage.addAttemptStats(state.currentLessonId, state.attemptStats);
+    state.attemptStats = null;
+  }
+
+  // Award score (one-time per section)
   if (sectionId === 'tingxie') {
-    collectRevisionPhrases();
-    if (state.revisionPhrases.length === 0) {
-      // Perfect tingxie — award 40 pts
-      if (state.sectionScores.tingxie === 0) state.sectionScores.tingxie = SECTION_SCORES.tingxie;
+    // Detect newly failed phrases from this attempt and append a revision attempt if any
+    const failedPhrases = collectFailedTingxiePhrases();
+    if (failedPhrases.length > 0) {
+      state.revisionAttempts.push({ phrases: failedPhrases });
     }
-    // else: 40 pts held until revision done
-  } else if (sectionId === 'revision') {
-    // Revision complete — award tingxie points
-    if (state.sectionScores.tingxie === 0) state.sectionScores.tingxie = SECTION_SCORES.tingxie;
+    checkAndAwardTingxie();
+  } else if (isRevision) {
+    checkAndAwardTingxie();
   } else {
     if (state.sectionScores[sectionId] === 0) {
       state.sectionScores[sectionId] = SECTION_SCORES[sectionId];
@@ -864,17 +960,25 @@ function exitSection() {
   launchConfetti(els.confettiContainerMenu);
 }
 
-function collectRevisionPhrases() {
-  // Only collect on first tingxie completion
-  if (state.completedSections.filter(id => id === 'tingxie').length > 1) return;
-  state.revisionPhrases = [];
+function collectFailedTingxiePhrases() {
+  const failed = [];
   for (const piStr in state.tingxieResults) {
     const pi = parseInt(piStr);
     const results = state.tingxieResults[pi];
-    if (results && results.some(r => !r)) {
-      state.revisionPhrases.push(pi);
-    }
+    if (results && results.some(r => !r)) failed.push(pi);
   }
+  return failed;
+}
+
+function checkAndAwardTingxie() {
+  if (state.sectionScores.tingxie >= SECTION_SCORES.tingxie) return; // already awarded
+  if (!state.completedSections.includes('tingxie')) return;
+  // All revisions must be done
+  for (let i = 0; i < state.revisionAttempts.length; i++) {
+    if (!state.completedSections.includes('revision-' + i + '-guided')) return;
+    if (!state.completedSections.includes('revision-' + i + '-free')) return;
+  }
+  state.sectionScores.tingxie = SECTION_SCORES.tingxie;
 }
 
 function completeLesson() {
@@ -1036,6 +1140,12 @@ function onCharComplete(data) {
   const sec = getActiveSection();
   const isGuided = sec.showOutline && state.roundNum <= state.guidedTotal;
 
+  // Track per-attempt stats for parent review
+  if (state.attemptStats) {
+    state.attemptStats.totalChars++;
+    state.attemptStats.totalMistakes += (data.totalMistakes || 0);
+  }
+
   // For tingxie, track per-char results and reveal the character box
   if (sec.perCharScoring) {
     state.tingxieCharResults[state.currentCharIdx] = (data.totalMistakes <= MAX_MISTAKES_UNGUIDED);
@@ -1085,9 +1195,10 @@ function onRoundComplete() {
   // Phrase just finished — celebrate with confetti + 1s pause
   state.isAnimating = true;
   launchConfetti(els.confettiContainer);
+  const isMultiRoundSection = sec.id === 'guided' || sec.id.indexOf('revision-') === 0;
   setTimeout(() => {
     state.isAnimating = false;
-    if (sec.id === 'guided' || sec.id === 'revision') {
+    if (isMultiRoundSection) {
       if (state.roundNum < state.guidedTotal) {
         state.roundNum++;
         state.currentCharIdx = 0;
@@ -1124,6 +1235,10 @@ function skipCharacter() {
   if (sec.perCharScoring) {
     state.tingxieCharResults[state.currentCharIdx] = false;
     revealTingxieChar(state.currentCharIdx);
+  }
+  if (state.attemptStats) {
+    state.attemptStats.totalChars++;
+    state.attemptStats.skipped++;
   }
   advanceAfterChar();
 }
@@ -1187,16 +1302,18 @@ function updatePracticeUI() {
   updatePhraseHighlight();
 
   // Progress info
-  if (sec.id === 'guided' || sec.id === 'revision') {
+  const isRevisionGuided = sec.id.indexOf('revision-') === 0 && sec._revisionType === 'guided';
+  const isRevisionFree = sec.id.indexOf('revision-') === 0 && sec._revisionType === 'free';
+  if (sec.id === 'guided' || isRevisionGuided) {
     els.attemptDisplay.textContent = 'Round ' + state.roundNum + '/' + state.guidedTotal;
-  } else if (sec.id === 'free') {
+  } else if (sec.id === 'free' || isRevisionFree) {
     const isGuided = state.roundNum <= state.guidedTotal && state.guidedTotal > 1;
     els.attemptDisplay.textContent = isGuided ? 'Guided ' + state.roundNum + '/' + state.guidedTotal : 'Free Trace';
   } else {
     els.attemptDisplay.textContent = '';
   }
 
-  if (sec.id === 'free') {
+  if (sec.id === 'free' || isRevisionFree) {
     els.btnGuided.classList.remove('hidden');
   }
 }
