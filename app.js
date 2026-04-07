@@ -755,7 +755,7 @@ function createQuizWriter(char, showOutline) {
     highlightColor: '#aaf',
     showHintAfterMisses: showOutline ? 3 : false,
     highlightOnComplete: false,
-    leniency: 1.5,
+    leniency: 2,
   });
 
   state.quizWriter.quiz({
