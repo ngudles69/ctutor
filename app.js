@@ -522,27 +522,7 @@ async function shareData() {
     alert('No lessons to share');
     return;
   }
-  const payload = buildExportPayload();
-  const json = JSON.stringify(payload);
-
-  // Try URL-based share if small enough (<=5KB)
-  if (json.length <= 5120) {
-    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
-    const url = location.origin + location.pathname + '?import=' + encoded;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Chinese Tutor Data', text: 'Tap to import Chinese Tutor data', url: url });
-        return;
-      } catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
-    }
-    // Fallback: copy to clipboard
-    if (navigator.clipboard) {
-      try { await navigator.clipboard.writeText(url); alert('Link copied to clipboard'); return; }
-      catch (e) { /* fall through to file */ }
-    }
-  }
-
-  // Large payload (or URL share failed): share as a .ctutor file
+  const json = JSON.stringify(buildExportPayload());
   const blob = new Blob([json], { type: 'application/json' });
   const filename = 'ctutor-backup-' + dateStr() + '.ctutor';
   try {
@@ -552,8 +532,7 @@ async function shareData() {
       return;
     }
   } catch (e) { if (e.name !== 'AbortError') console.warn('file share failed:', e); }
-
-  // Final fallback: download
+  // Fallback: download
   downloadBlob(blob, filename);
 }
 
