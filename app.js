@@ -133,6 +133,7 @@ const $ = id => document.getElementById(id);
 const els = {
   topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnModeSwitch:$('btn-mode-switch'),
   btnEnterLearner:$('btn-enter-learner'), btnEnterParent:$('btn-enter-parent'),
+  btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), importFileInput:$('import-file-input'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   balanceAmount:$('balance-amount'), lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
@@ -174,6 +175,9 @@ const els = {
 function init() {
   els.btnEnterLearner.addEventListener('click', () => enterLearnerMode());
   els.btnEnterParent.addEventListener('click', () => showPinEntry('parent'));
+  els.btnExportData.addEventListener('click', exportData);
+  els.btnImportData.addEventListener('click', () => els.importFileInput.click());
+  els.importFileInput.addEventListener('change', importData);
   els.btnBack.addEventListener('click', navBack);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
@@ -441,6 +445,54 @@ function saveNewPin() {
   if (np!==cf) { e.textContent='PINs do not match'; e.classList.remove('hidden'); return; }
   Storage.setPin(np); els.currentPinInput.value=''; els.newPinInput.value=''; els.confirmPinInput.value='';
   e.classList.add('hidden'); navBack();
+}
+
+// ============================================
+// EXPORT / IMPORT
+// ============================================
+function exportData() {
+  const data = { lessons: Storage.getLessons(), exportedAt: Date.now(), version: 1 };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  a.href = url;
+  a.download = 'ctutor-backup-' + date + '.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || !Array.isArray(data.lessons)) {
+        alert('Invalid backup file: missing lessons array');
+        return;
+      }
+      if (!confirm('This will replace all existing lessons and progress. Continue?')) {
+        return;
+      }
+      // Replace lessons but preserve PIN
+      const cur = Storage._load();
+      cur.lessons = data.lessons;
+      Storage._save();
+      alert('Imported ' + data.lessons.length + ' lesson(s).');
+      // Refresh current screen if applicable
+      if (state.mode === 'learner') renderLearnerDashboard();
+      if (state.mode === 'parent') renderParentDashboard();
+    } catch (err) {
+      alert('Failed to import: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // reset so same file can be re-imported
 }
 
 // ============================================
