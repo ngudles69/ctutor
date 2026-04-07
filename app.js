@@ -152,7 +152,7 @@ const els = {
   // Practice
   sectionTabs:$('section-tabs'), phraseCharsDisplay:$('phrase-chars-display'),
   phraseProgress:$('phrase-progress'), practiceScore:$('practice-score'),
-  refArea:$('ref-area'), tingxieArea:$('tingxie-area'), btnSpeakPhrase:$('btn-speak-phrase'),
+  refArea:$('ref-area'), tingxieArea:$('tingxie-area'), tingxieCharsDisplay:$('tingxie-chars-display'), btnSpeakPhrase:$('btn-speak-phrase'),
   refCharContainer:$('ref-char-container'), refWriterTarget:$('ref-writer-target'),
   refInfo:$('ref-info'), pinyinDisplay:$('pinyin-display'), meaningDisplay:$('meaning-display'),
   btnSpeak:$('btn-speak'), progressInfo:$('progress-info'),
@@ -638,8 +638,12 @@ function startPhrase() {
 
   destroyWriters();
   renderPhraseWriters();
+  renderTingxieBoxes();
   updatePracticeUI();
   startCharacter();
+
+  // Auto-speak the phrase for all sections
+  speakText(getCurrentPhrase());
 }
 
 function renderPhraseWriters() {
@@ -674,6 +678,42 @@ function updatePhraseHighlight() {
   });
 }
 
+function renderTingxieBoxes() {
+  els.tingxieCharsDisplay.innerHTML = '';
+  const sec = getActiveSection();
+  if (!sec.perCharScoring) return;
+
+  const phrase = getCurrentPhrase();
+  for (let i = 0; i < phrase.length; i++) {
+    const box = document.createElement('div');
+    box.className = 'tingxie-char-box' + (i === state.currentCharIdx ? ' active' : '');
+    box.dataset.idx = i;
+    els.tingxieCharsDisplay.appendChild(box);
+  }
+}
+
+function updateTingxieHighlight() {
+  const boxes = els.tingxieCharsDisplay.querySelectorAll('.tingxie-char-box');
+  boxes.forEach((b, i) => {
+    if (!b.classList.contains('completed')) {
+      b.classList.toggle('active', i === state.currentCharIdx);
+    }
+  });
+}
+
+function revealTingxieChar(charIdx) {
+  const boxes = els.tingxieCharsDisplay.querySelectorAll('.tingxie-char-box');
+  const box = boxes[charIdx];
+  if (!box || box.classList.contains('completed')) return;
+  box.classList.remove('active');
+  box.classList.add('completed');
+  const char = getCurrentPhrase()[charIdx];
+  HanziWriter.create(box, char, {
+    width: 40, height: 40, padding: 2,
+    strokeColor: '#333', outlineColor: 'transparent',
+  }).showCharacter();
+}
+
 function startCharacter() {
   const sec = getActiveSection();
   const char = getCurrentChar();
@@ -693,6 +733,7 @@ function startCharacter() {
   } else {
     els.refArea.classList.add('hidden');
     els.tingxieArea.classList.remove('hidden');
+    updateTingxieHighlight();
   }
 
   // Quiz writer
@@ -737,15 +778,10 @@ function onCharComplete(data) {
   const sec = getActiveSection();
   const isGuided = sec.showOutline && state.roundNum <= state.guidedTotal;
 
-  // For tingxie, track per-char results
+  // For tingxie, track per-char results and reveal the character box
   if (sec.perCharScoring) {
     state.tingxieCharResults[state.currentCharIdx] = (data.totalMistakes <= MAX_MISTAKES_UNGUIDED);
-  }
-
-  if (!isGuided && !sec.perCharScoring && data.totalMistakes > MAX_MISTAKES_UNGUIDED) {
-    state.isAnimating = false;
-    els.failDialog.classList.remove('hidden');
-    return;
+    revealTingxieChar(state.currentCharIdx);
   }
 
   showSuccessFlash(sec.perCharScoring ? '' : 'Nice!', () => {
@@ -805,6 +841,7 @@ function skipCharacter() {
   const sec = getActiveSection();
   if (sec.perCharScoring) {
     state.tingxieCharResults[state.currentCharIdx] = false;
+    revealTingxieChar(state.currentCharIdx);
   }
   advanceAfterChar();
 }
