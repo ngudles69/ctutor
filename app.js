@@ -202,7 +202,7 @@ function init() {
   els.btnGuided.addEventListener('click', switchToGuided);
   els.btnAnimate.addEventListener('click', showAnimation);
   els.btnSkip.addEventListener('click', skipCharacter);
-  els.btnSpeak.addEventListener('click', () => speakText(getCurrentChar()));
+  els.btnSpeak.addEventListener('click', () => speakText(getCurrentPhrase()));
   els.btnSpeakPhrase.addEventListener('click', () => speakText(getCurrentPhrase()));
   els.btnRetryGuided.addEventListener('click', retryWithGuided);
   els.btnRetryFree.addEventListener('click', retryFree);
@@ -708,9 +708,6 @@ function startPhrase() {
   renderTingxieBoxes();
   updatePracticeUI();
   startCharacter();
-
-  // Auto-speak the phrase for all sections
-  speakText(getCurrentPhrase());
 }
 
 function renderPhraseWriters() {
@@ -790,6 +787,9 @@ function startCharacter() {
 
   updatePracticeUI();
   updateCharDetails();
+
+  // Auto-speak the full phrase whenever a new character is shown
+  speakText(getCurrentPhrase());
 
   // Reference area
   if (sec.showRef) {
