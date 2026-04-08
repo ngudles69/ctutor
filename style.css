@@ -12,7 +12,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 #top-title{font-size:16px;font-weight:600;color:#2c3e50}
 .top-btn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#4a90d9;cursor:pointer;touch-action:manipulation;border-radius:8px}
 .top-btn:active{background:#e8f4fd}.top-btn.invisible{visibility:hidden}
-.top-bar-right{display:flex;align-items:center;gap:2px}
+.top-bar-left{display:flex;align-items:center}
 
 /* === Home === */
 .home-container{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px}

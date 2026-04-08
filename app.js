@@ -277,7 +277,7 @@ function navigateTo(screenId, title, opts) {
   if (showTop) {
     els.topTitle.textContent = title || '';
     const isDashboard = ['learner','parent'].includes(screenId);
-    els.btnBack.classList.toggle('invisible', isDashboard);
+    els.btnBack.classList.toggle('hidden', isDashboard);
     els.btnHome.classList.toggle('hidden', !isDashboard);
   }
   if (!opts.replace) state.navStack.push({ screenId, title });
@@ -573,13 +573,19 @@ async function shareData() {
   const payload = buildExportPayload();
   const json = JSON.stringify(payload);
 
-  // Try URL-based share if small enough (<=5KB)
-  if (json.length <= 5120) {
-    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
-    const url = location.origin + location.pathname + '?import=' + encoded;
+  // Try URL-based share if compressed payload is reasonably short.
+  // LZString.compressToEncodedURIComponent gives URL-safe output and
+  // shrinks JSON dramatically (repetitive keys compress well).
+  const encoded = LZString.compressToEncodedURIComponent(json);
+  if (encoded.length <= 1800) {
+    const url = location.origin + location.pathname + '?d=' + encoded;
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Chinese Tutor Data', text: 'Tap to import Chinese Tutor data', url: url });
+        // Combine friendly label + URL into a single `text` field. Passing
+        // `text` and `url` as separate fields makes iOS Messages split them
+        // into two bubbles; one combined text field stays as one message
+        // and iOS still autolinks the URL.
+        await navigator.share({ text: 'Tap to import Chinese Tutor data: ' + url });
         return;
       } catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
     }
@@ -663,17 +669,30 @@ function replaceImportedData(data) {
   return { total: data.lessons.length };
 }
 
+function lessonKey(l) {
+  // Fallback identity: normalized name + phrase chars (so independently
+  // created copies of the same lesson can still be detected as duplicates).
+  const name = (l.name || '').trim().toLowerCase();
+  const phrases = (l.phrases || []).map(p => (p || '').trim()).join('|');
+  return name + '::' + phrases;
+}
 function mergeImportedData(data) {
   if (!data || !Array.isArray(data.lessons)) throw new Error('Invalid payload: missing lessons array');
   const cur = Storage._load();
   const localById = {};
-  cur.lessons.forEach(l => { localById[l.id] = l; });
+  const localByKey = {};
+  cur.lessons.forEach(l => {
+    localById[l.id] = l;
+    localByKey[lessonKey(l)] = l;
+  });
 
   let added = 0, merged = 0;
   data.lessons.forEach(remote => {
-    const local = localById[remote.id];
+    let local = localById[remote.id] || localByKey[lessonKey(remote)];
     if (!local) {
       cur.lessons.push(remote);
+      localById[remote.id] = remote;
+      localByKey[lessonKey(remote)] = remote;
       added++;
     } else {
       mergeLesson(local, remote);
@@ -728,12 +747,19 @@ function mergeLesson(local, remote) {
 
 function checkUrlImport() {
   const params = new URLSearchParams(location.search);
-  const encoded = params.get('import');
-  if (!encoded) return;
+  const compact = params.get('d');
+  const legacy = params.get('import');
+  if (!compact && !legacy) return;
   // Clean URL so reloading doesn't re-prompt
   history.replaceState({}, '', location.pathname);
   try {
-    const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+    let json;
+    if (compact) {
+      json = LZString.decompressFromEncodedURIComponent(compact);
+      if (!json) throw new Error('Could not decompress link');
+    } else {
+      json = decodeURIComponent(escape(atob(decodeURIComponent(legacy))));
+    }
     const data = JSON.parse(json);
     if (!data || !Array.isArray(data.lessons)) throw new Error('Missing lessons array');
     showImportDialog(data);
