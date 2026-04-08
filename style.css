@@ -105,6 +105,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .skip-requests-section{display:flex;flex-direction:column;gap:8px}
 .skip-requests-list{display:flex;flex-direction:column;gap:8px}
 .skip-request-item{background:#fffbe6;border-left:4px solid #f5a623;border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.skip-request-item.approved{background:#e8f8e8;border-left-color:#4CAF50}
 .skip-request-info{flex:1;min-width:0}
 .skip-request-name{font-size:15px;font-weight:600;color:#2c3e50}
 .skip-request-desc{font-size:12px;color:#888;margin-top:2px}
@@ -112,6 +113,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .skip-request-actions button{padding:8px 12px;font-size:13px;font-weight:600;border:none;border-radius:8px;cursor:pointer;touch-action:manipulation}
 .skip-request-actions .btn-approve{background:#4CAF50;color:#fff}
 .skip-request-actions .btn-deny{background:#fff;color:#e74c3c;border:1.5px solid #e74c3c}
+.skip-request-actions .btn-resend{background:#4a90d9;color:#fff}
+.skip-request-actions .btn-dismiss{background:#fff;color:#888;border:1.5px solid #ccc}
 
 /* === Parent Dashboard === */
 .parent-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}

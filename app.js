@@ -78,6 +78,13 @@ const Storage = {
       this._data.stickers.claims = {};
       this._save();
     }
+    // Legacy skipRequest stored as a plain string -> upgrade to object
+    this._data.lessons.forEach(l => {
+      if (typeof l.skipRequest === 'string') {
+        l.skipRequest = { id: 'legacy', status: l.skipRequest, createdAt: 0 };
+        this._save();
+      }
+    });
   },
   getPin() { return this._load().pin; },
   setPin(pin) { this._load().pin = pin; this._save(); },
@@ -174,18 +181,18 @@ const Storage = {
     this._save();
     return { id: id, isNew: isNew };
   },
-  // Skip-permission requests (per lesson)
+  // Skip-permission requests (per lesson, single active per lesson)
   getSkipRequest(lessonId) {
     const l = this.getLesson(lessonId); return l ? (l.skipRequest || null) : null;
   },
-  setSkipRequest(lessonId, status) {
+  setSkipRequest(lessonId, value) {
     const l = this.getLesson(lessonId); if (!l) return;
-    if (status) l.skipRequest = status;
+    if (value) l.skipRequest = value;
     else delete l.skipRequest;
     this._save();
   },
-  getPendingSkipRequests() {
-    return this.getLessons().filter(l => l.skipRequest === 'pending');
+  getActiveSkipRequests() {
+    return this.getLessons().filter(l => l.skipRequest && (l.skipRequest.status === 'pending' || l.skipRequest.status === 'approved'));
   },
 };
 
@@ -403,12 +410,12 @@ function renderLearnerDashboard() {
   els.noLessonsLearner.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
     const card = document.createElement('div'); card.className = 'lesson-card';
-    const skipState = lesson.skipRequest || null;
+    const skipReq = lesson.skipRequest || null;
     let skipBtnHtml = '';
-    if (skipState === 'approved') {
+    if (skipReq && skipReq.status === 'approved') {
       skipBtnHtml = '<button class="lesson-skip-btn approved" data-skip="approved">\u2728 Skip ready! Tap lesson to use</button>';
-    } else if (skipState === 'pending') {
-      skipBtnHtml = '<button class="lesson-skip-btn pending" data-skip="pending" disabled>Skip request sent\u2026</button>';
+    } else if (skipReq && skipReq.status === 'pending') {
+      skipBtnHtml = '<button class="lesson-skip-btn pending" data-skip="resend">Tap to resend skip request</button>';
     } else {
       skipBtnHtml = '<button class="lesson-skip-btn" data-skip="ask">Ask to skip to \u542C\u5199</button>';
     }
@@ -422,43 +429,157 @@ function renderLearnerDashboard() {
     const skipBtn = card.querySelector('.lesson-skip-btn');
     skipBtn.addEventListener('click', e => {
       e.stopPropagation();
-      if (skipBtn.dataset.skip === 'ask') requestSkip(lesson.id);
+      const action = skipBtn.dataset.skip;
+      if (action === 'ask' || action === 'resend') shareSkipRequest(lesson.id);
     });
     card.addEventListener('click', () => startLesson(lesson.id));
     els.lessonListLearner.appendChild(card);
   });
 }
 
-function requestSkip(lessonId) {
-  Storage.setSkipRequest(lessonId, 'pending');
-  renderLearnerDashboard();
-  alert('Skip request sent! Ask your parent to approve it.');
+async function shareSkipRequest(lessonId) {
+  const lesson = Storage.getLesson(lessonId); if (!lesson) return;
+  // One active request per lesson. Reuse existing pending id; don't
+  // create a new one if already approved (consume it first).
+  const existing = lesson.skipRequest;
+  if (existing && existing.status === 'approved') {
+    alert('You already have an approved skip for this lesson. Tap the lesson to use it.');
+    return;
+  }
+  let rid, createdAt;
+  if (existing && existing.status === 'pending') {
+    rid = existing.id;
+    createdAt = existing.createdAt;
+  } else {
+    rid = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    createdAt = Date.now();
+    Storage.setSkipRequest(lessonId, { id: rid, status: 'pending', createdAt: createdAt });
+    renderLearnerDashboard();
+  }
+
+  const payload = { t: 'sr', rid: rid, lid: lessonId, ln: lesson.name, ph: lesson.phrases, at: createdAt };
+  const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  const url = location.origin + location.pathname + '?sr=' + encoded;
+  const text = 'Chinese Tutor skip request for "' + lesson.name + '": ' + url;
+
+  if (navigator.share) {
+    try { await navigator.share({ text: text }); return; }
+    catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
+  }
+  if (navigator.clipboard) {
+    try { await navigator.clipboard.writeText(text); alert('Skip request link copied to clipboard'); return; }
+    catch (e) { /* fall through */ }
+  }
+  alert('Could not share. Link: ' + url);
+}
+
+async function shareSkipApproval(lessonId) {
+  const lesson = Storage.getLesson(lessonId); if (!lesson) return;
+  const req = lesson.skipRequest;
+  if (!req || !req.id) { alert('No pending request to approve'); return; }
+
+  // Mark approved locally so banner clears
+  Storage.setSkipRequest(lessonId, { id: req.id, status: 'approved', createdAt: req.createdAt, approvedAt: Date.now() });
+  renderParentDashboard();
+
+  const payload = { t: 'sa', rid: req.id, lid: lessonId, ln: lesson.name, ph: lesson.phrases, at: Date.now() };
+  const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  const url = location.origin + location.pathname + '?sa=' + encoded;
+  const text = 'Chinese Tutor skip approved for "' + lesson.name + '": ' + url;
+
+  if (navigator.share) {
+    try { await navigator.share({ text: text }); return; }
+    catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
+  }
+  if (navigator.clipboard) {
+    try { await navigator.clipboard.writeText(text); alert('Approval link copied to clipboard'); return; }
+    catch (e) { /* fall through */ }
+  }
+  alert('Could not share. Link: ' + url);
+}
+
+function findLessonByIdentity(lessonId, name, phrases) {
+  let l = Storage.getLesson(lessonId);
+  if (l) return l;
+  const key = lessonKey({ name: name, phrases: phrases });
+  return Storage.getLessons().find(x => lessonKey(x) === key) || null;
+}
+
+function ingestSkipRequest(payload) {
+  if (!payload || !payload.rid || !payload.ln) {
+    alert('Invalid skip request link.');
+    return;
+  }
+  const local = findLessonByIdentity(payload.lid, payload.ln, payload.ph || []);
+  if (!local) {
+    alert('Skip request received for "' + payload.ln + '" but no matching lesson exists on this device. Import the lesson first.');
+    return;
+  }
+  // Avoid clobbering an already-approved request with the same id
+  const existing = local.skipRequest;
+  if (existing && existing.id === payload.rid && existing.status === 'approved') {
+    alert('This skip request was already approved.');
+    return;
+  }
+  Storage.setSkipRequest(local.id, { id: payload.rid, status: 'pending', createdAt: payload.at || Date.now() });
+  alert('Skip request received for: ' + local.name + '\nOpen Parent mode to approve.');
+}
+
+function ingestSkipApproval(payload) {
+  if (!payload || !payload.rid || !payload.ln) {
+    alert('Invalid skip approval link.');
+    return;
+  }
+  const local = findLessonByIdentity(payload.lid, payload.ln, payload.ph || []);
+  if (!local) {
+    alert('Skip approval received for "' + payload.ln + '" but no matching lesson on this device.');
+    return;
+  }
+  const req = local.skipRequest;
+  if (!req || req.id !== payload.rid) {
+    alert('Skip approval received for "' + local.name + '" but it does not match a pending request on this device.');
+    return;
+  }
+  Storage.setSkipRequest(local.id, { id: req.id, status: 'approved', createdAt: req.createdAt, approvedAt: payload.at || Date.now() });
+  alert('Skip approved for: ' + local.name + '!\nTap the lesson on the Learner page to use it.');
 }
 
 function renderSkipRequests() {
-  const pending = Storage.getPendingSkipRequests();
-  els.skipRequestsSection.classList.toggle('hidden', pending.length === 0);
+  const active = Storage.getActiveSkipRequests();
+  els.skipRequestsSection.classList.toggle('hidden', active.length === 0);
   els.skipRequestsList.innerHTML = '';
-  pending.forEach(lesson => {
+  active.forEach(lesson => {
+    const req = lesson.skipRequest;
+    const isApproved = req.status === 'approved';
     const item = document.createElement('div');
-    item.className = 'skip-request-item';
+    item.className = 'skip-request-item' + (isApproved ? ' approved' : '');
+    const desc = isApproved
+      ? 'Approved \u00b7 send the link to the learner'
+      : 'Skip Guided + Free, go to \u542C\u5199';
+    const actionsHtml = isApproved
+      ? '<button class="btn-resend">Resend</button>' +
+        '<button class="btn-dismiss">Done</button>'
+      : '<button class="btn-approve">Approve</button>' +
+        '<button class="btn-deny">Deny</button>';
     item.innerHTML =
       '<div class="skip-request-info">' +
       '<div class="skip-request-name">' + esc(lesson.name) + '</div>' +
-      '<div class="skip-request-desc">Skip Guided + Free, go to \u542C\u5199</div>' +
+      '<div class="skip-request-desc">' + desc + '</div>' +
       '</div>' +
-      '<div class="skip-request-actions">' +
-      '<button class="btn-approve">Approve</button>' +
-      '<button class="btn-deny">Deny</button>' +
-      '</div>';
-    item.querySelector('.btn-approve').addEventListener('click', () => {
-      Storage.setSkipRequest(lesson.id, 'approved');
-      renderParentDashboard();
-    });
-    item.querySelector('.btn-deny').addEventListener('click', () => {
-      Storage.setSkipRequest(lesson.id, null);
-      renderParentDashboard();
-    });
+      '<div class="skip-request-actions">' + actionsHtml + '</div>';
+    if (isApproved) {
+      item.querySelector('.btn-resend').addEventListener('click', () => shareSkipApproval(lesson.id));
+      item.querySelector('.btn-dismiss').addEventListener('click', () => {
+        Storage.setSkipRequest(lesson.id, null);
+        renderParentDashboard();
+      });
+    } else {
+      item.querySelector('.btn-approve').addEventListener('click', () => shareSkipApproval(lesson.id));
+      item.querySelector('.btn-deny').addEventListener('click', () => {
+        Storage.setSkipRequest(lesson.id, null);
+        renderParentDashboard();
+      });
+    }
     els.skipRequestsList.appendChild(item);
   });
 }
@@ -1050,16 +1171,38 @@ function mergeLesson(local, remote) {
       if (!lc.note && rc.note) lc.note = rc.note;
     }
   });
+
+  // Skip request: keep the more recent one (by createdAt)
+  if (remote.skipRequest && typeof remote.skipRequest === 'object') {
+    const lr = local.skipRequest;
+    if (!lr || (remote.skipRequest.createdAt || 0) > (lr.createdAt || 0)) {
+      local.skipRequest = remote.skipRequest;
+    }
+  }
 }
 
 function checkUrlImport() {
   const params = new URLSearchParams(location.search);
   const compact = params.get('d');
   const legacy = params.get('import');
-  if (!compact && !legacy) return;
+  const skipReq = params.get('sr');
+  const skipApp = params.get('sa');
+  if (!compact && !legacy && !skipReq && !skipApp) return;
   // Clean URL so reloading doesn't re-prompt
   history.replaceState({}, '', location.pathname);
   try {
+    if (skipReq) {
+      const json = LZString.decompressFromEncodedURIComponent(skipReq);
+      if (!json) throw new Error('Could not decompress link');
+      ingestSkipRequest(JSON.parse(json));
+      return;
+    }
+    if (skipApp) {
+      const json = LZString.decompressFromEncodedURIComponent(skipApp);
+      if (!json) throw new Error('Could not decompress link');
+      ingestSkipApproval(JSON.parse(json));
+      return;
+    }
     let json;
     if (compact) {
       json = LZString.decompressFromEncodedURIComponent(compact);
@@ -1071,7 +1214,7 @@ function checkUrlImport() {
     if (!data || !Array.isArray(data.lessons)) throw new Error('Missing lessons array');
     showImportDialog(data);
   } catch (e) {
-    alert('Invalid import link: ' + e.message);
+    alert('Invalid link: ' + e.message);
   }
 }
 
@@ -1211,7 +1354,8 @@ async function startLesson(lessonId) {
   state.activeSectionId = null;
 
   // Consume skip permission if approved — auto-mark guided & free as done
-  if (state.mode === 'learner' && Storage.getSkipRequest(lessonId) === 'approved') {
+  const skipReq = Storage.getSkipRequest(lessonId);
+  if (state.mode === 'learner' && skipReq && skipReq.status === 'approved') {
     if (!state.completedSections.includes('guided')) state.completedSections.push('guided');
     if (!state.completedSections.includes('free')) state.completedSections.push('free');
     Storage.setSkipRequest(lessonId, null);
