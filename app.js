@@ -170,7 +170,7 @@ const state = {
 // ============================================
 const $ = id => document.getElementById(id);
 const els = {
-  topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnModeSwitch:$('btn-mode-switch'),
+  topBar:$('top-bar'), topTitle:$('top-title'), btnBack:$('btn-back'), btnHome:$('btn-home'), btnModeSwitch:$('btn-mode-switch'),
   btnEnterLearner:$('btn-enter-learner'), btnEnterParent:$('btn-enter-parent'),
   btnExportData:$('btn-export-data'), btnImportData:$('btn-import-data'), btnShareData:$('btn-share-data'), btnTestSpeech:$('btn-test-speech'), importFileInput:$('import-file-input'),
   importDialog:$('import-dialog'), importSummary:$('import-summary'),
@@ -233,6 +233,7 @@ function init() {
   els.btnImportCancel.addEventListener('click', closeImportDialog);
   checkUrlImport();
   els.btnBack.addEventListener('click', navBack);
+  els.btnHome.addEventListener('click', goHome);
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
   els.btnPinCancel.addEventListener('click', navBack);
@@ -275,7 +276,9 @@ function navigateTo(screenId, title, opts) {
   target.classList.toggle('has-topbar', showTop);
   if (showTop) {
     els.topTitle.textContent = title || '';
-    els.btnBack.classList.toggle('invisible', ['learner','parent'].includes(screenId));
+    const isDashboard = ['learner','parent'].includes(screenId);
+    els.btnBack.classList.toggle('invisible', isDashboard);
+    els.btnHome.classList.toggle('hidden', !isDashboard);
   }
   if (!opts.replace) state.navStack.push({ screenId, title });
   if (screenId === 'learner') renderLearnerDashboard();
@@ -287,6 +290,7 @@ function navBack() {
   else navigateTo('home');
 }
 function handleModeSwitch() { state.mode === 'learner' ? showPinEntry('parent') : enterLearnerMode(); }
+function goHome() { state.mode=null; state.navStack=[]; navigateTo('home'); }
 function enterLearnerMode() { state.mode='learner'; state.navStack=[]; navigateTo('learner','Lessons'); }
 function enterParentMode() { state.mode='parent'; state.navStack=[]; navigateTo('parent','Parent / Teacher'); }
 
@@ -566,7 +570,27 @@ async function shareData() {
     alert('No lessons to share');
     return;
   }
-  const json = JSON.stringify(buildExportPayload());
+  const payload = buildExportPayload();
+  const json = JSON.stringify(payload);
+
+  // Try URL-based share if small enough (<=5KB)
+  if (json.length <= 5120) {
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
+    const url = location.origin + location.pathname + '?import=' + encoded;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Chinese Tutor Data', text: 'Tap to import Chinese Tutor data', url: url });
+        return;
+      } catch (e) { if (e.name !== 'AbortError') console.warn('share failed:', e); }
+    }
+    // Fallback: copy to clipboard
+    if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(url); alert('Link copied to clipboard'); return; }
+      catch (e) { /* fall through to file */ }
+    }
+  }
+
+  // Large payload (or URL share failed): share as a .ctutor file
   const blob = new Blob([json], { type: 'application/json' });
   const filename = 'ctutor-backup-' + dateStr() + '.ctutor';
   try {
@@ -576,7 +600,8 @@ async function shareData() {
       return;
     }
   } catch (e) { if (e.name !== 'AbortError') console.warn('file share failed:', e); }
-  // Fallback: download
+
+  // Final fallback: download
   downloadBlob(blob, filename);
 }
 
