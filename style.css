@@ -95,6 +95,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .phrase-pill{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;background:#f5f0eb;border-radius:8px;font-size:16px;color:#2c3e50}
 .char-pill{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:#f5f0eb;border-radius:8px;font-size:18px;color:#2c3e50}
 .lesson-card-reward{font-size:14px;color:#4CAF50;font-weight:500}
+.lesson-skip-btn{margin-top:4px;padding:8px 12px;font-size:13px;font-weight:600;color:#4a90d9;background:#fff;border:1.5px dashed #4a90d9;border-radius:10px;cursor:pointer;touch-action:manipulation}
+.lesson-skip-btn:active{background:#e8f4fd}
+.lesson-skip-btn.pending{color:#888;background:#f0f0f0;border-color:#ccc;border-style:solid;cursor:not-allowed}
+.lesson-skip-btn.approved{color:#fff;background:linear-gradient(135deg,#f5a623,#f7b955);border:none;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.85}}
+
+/* Skip request banners (parent) */
+.skip-requests-section{display:flex;flex-direction:column;gap:8px}
+.skip-requests-list{display:flex;flex-direction:column;gap:8px}
+.skip-request-item{background:#fffbe6;border-left:4px solid #f5a623;border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.skip-request-info{flex:1;min-width:0}
+.skip-request-name{font-size:15px;font-weight:600;color:#2c3e50}
+.skip-request-desc{font-size:12px;color:#888;margin-top:2px}
+.skip-request-actions{display:flex;gap:6px;flex-shrink:0}
+.skip-request-actions button{padding:8px 12px;font-size:13px;font-weight:600;border:none;border-radius:8px;cursor:pointer;touch-action:manipulation}
+.skip-request-actions .btn-approve{background:#4CAF50;color:#fff}
+.skip-request-actions .btn-deny{background:#fff;color:#e74c3c;border:1.5px solid #e74c3c}
 
 /* === Parent Dashboard === */
 .parent-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}

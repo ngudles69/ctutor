@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
 
@@ -79,8 +79,9 @@
   <div id="screen-stickers" class="screen hidden">
     <div class="stickers-container">
       <div id="stickers-header" class="stickers-header">0 / 0 collected</div>
-      <div id="stickers-filter" class="stickers-filter hidden">
-        <button id="btn-filter-all" class="filter-btn active">All Owned</button>
+      <div id="stickers-filter" class="stickers-filter">
+        <button id="btn-filter-gallery" class="filter-btn active">Gallery</button>
+        <button id="btn-filter-all" class="filter-btn">All Owned</button>
         <button id="btn-filter-unclaimed" class="filter-btn">Unclaimed</button>
       </div>
       <div id="stickers-grid" class="stickers-grid"></div>
@@ -110,6 +111,10 @@
         <div class="stat-item"><div id="stat-lessons" class="stat-value">0</div><div class="stat-label">Lessons</div></div>
         <div class="stat-item"><div id="stat-completions" class="stat-value">0</div><div class="stat-label">Completions</div></div>
         <div id="stickers-card-parent" class="stat-item stat-item-clickable"><div id="stat-stickers" class="stat-value">0</div><div class="stat-label">Stickers</div></div>
+      </div>
+      <div id="skip-requests-section" class="skip-requests-section hidden">
+        <h3 class="section-heading">Skip Requests</h3>
+        <div id="skip-requests-list" class="skip-requests-list"></div>
       </div>
       <div class="parent-actions">
         <button id="btn-add-lesson" class="btn-primary">+ Add Lesson</button>
@@ -294,6 +299,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-  <script src="app.js?v=43"></script>
+  <script src="app.js?v=45"></script>
 </body>
 </html>

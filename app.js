@@ -174,6 +174,19 @@ const Storage = {
     this._save();
     return { id: id, isNew: isNew };
   },
+  // Skip-permission requests (per lesson)
+  getSkipRequest(lessonId) {
+    const l = this.getLesson(lessonId); return l ? (l.skipRequest || null) : null;
+  },
+  setSkipRequest(lessonId, status) {
+    const l = this.getLesson(lessonId); if (!l) return;
+    if (status) l.skipRequest = status;
+    else delete l.skipRequest;
+    this._save();
+  },
+  getPendingSkipRequests() {
+    return this.getLessons().filter(l => l.skipRequest === 'pending');
+  },
 };
 
 // ============================================
@@ -206,7 +219,7 @@ const state = {
   editingLessonId: null,
   navStack: [],
   // Stickers
-  stickerFilter: 'all',
+  stickerFilter: 'gallery',
   stickerDetailId: null,
 };
 
@@ -225,7 +238,7 @@ const els = {
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   stickersCard:$('stickers-card'), stickersCardParent:$('stickers-card-parent'), stickersAmount:$('stickers-amount'),
   stickersHeader:$('stickers-header'), stickersGrid:$('stickers-grid'),
-  stickersFilter:$('stickers-filter'), btnFilterAll:$('btn-filter-all'), btnFilterUnclaimed:$('btn-filter-unclaimed'),
+  stickersFilter:$('stickers-filter'), btnFilterGallery:$('btn-filter-gallery'), btnFilterAll:$('btn-filter-all'), btnFilterUnclaimed:$('btn-filter-unclaimed'),
   stickerDetailDialog:$('sticker-detail-dialog'), stickerDetailImg:$('sticker-detail-img'),
   stickerDetailEarned:$('sticker-detail-earned'), stickerDetailClaimStatus:$('sticker-detail-claim-status'),
   stickerDetailComment:$('sticker-detail-comment'),
@@ -235,6 +248,7 @@ const els = {
   lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statCompletions:$('stat-completions'), statStickers:$('stat-stickers'),
   lessonListParent:$('lesson-list-parent'), noLessonsParent:$('no-lessons-parent'),
+  skipRequestsSection:$('skip-requests-section'), skipRequestsList:$('skip-requests-list'),
   btnAddLesson:$('btn-add-lesson'), btnChangePin:$('btn-change-pin'),
   lessonNameInput:$('lesson-name-input'), phraseInputsContainer:$('phrase-inputs-container'),
   btnAddPhrase:$('btn-add-phrase'),
@@ -290,8 +304,12 @@ function init() {
   els.btnHome.addEventListener('click', goHome);
   els.stickersCard.addEventListener('click', () => navigateTo('stickers', 'My Stickers'));
   els.stickersCardParent.addEventListener('click', () => navigateTo('stickers', 'Sticker Book'));
+  els.btnFilterGallery.addEventListener('click', () => setStickerFilter('gallery'));
   els.btnFilterAll.addEventListener('click', () => setStickerFilter('all'));
   els.btnFilterUnclaimed.addEventListener('click', () => setStickerFilter('unclaimed'));
+  els.stickerDetailDialog.addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeStickerDetail();
+  });
   els.btnStickerClaim.addEventListener('click', confirmClaimSticker);
   els.btnStickerUnclaim.addEventListener('click', confirmUnclaimSticker);
   els.btnStickerDetailClose.addEventListener('click', closeStickerDetail);
@@ -334,6 +352,10 @@ document.addEventListener('DOMContentLoaded', init);
 // ============================================
 function navigateTo(screenId, title, opts) {
   opts = opts || {};
+  // Close any open sticker detail when navigating away
+  if (els.stickerDetailDialog && !els.stickerDetailDialog.classList.contains('hidden')) {
+    closeStickerDetail();
+  }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   const showTop = screenId !== 'home';
   els.topBar.classList.toggle('hidden', !showTop);
@@ -381,14 +403,63 @@ function renderLearnerDashboard() {
   els.noLessonsLearner.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
     const card = document.createElement('div'); card.className = 'lesson-card';
+    const skipState = lesson.skipRequest || null;
+    let skipBtnHtml = '';
+    if (skipState === 'approved') {
+      skipBtnHtml = '<button class="lesson-skip-btn approved" data-skip="approved">\u2728 Skip ready! Tap lesson to use</button>';
+    } else if (skipState === 'pending') {
+      skipBtnHtml = '<button class="lesson-skip-btn pending" data-skip="pending" disabled>Skip request sent\u2026</button>';
+    } else {
+      skipBtnHtml = '<button class="lesson-skip-btn" data-skip="ask">Ask to skip to \u542C\u5199</button>';
+    }
     card.innerHTML =
       '<div class="lesson-card-header"><div class="lesson-card-name">' + esc(lesson.name) + '</div>' +
       '<span class="lesson-card-badge ' + (lesson.completions.length ? 'badge-done' : 'badge-new') + '">' +
       (lesson.completions.length ? 'Done x' + lesson.completions.length : 'New') + '</span></div>' +
       '<div class="phrase-preview">' + lesson.phrases.map(p => '<span class="phrase-pill">' + esc(p) + '</span>').join('') + '</div>' +
-      '<div class="lesson-card-reward">Complete to earn a sticker!</div>';
+      '<div class="lesson-card-reward">Complete to earn a sticker!</div>' +
+      skipBtnHtml;
+    const skipBtn = card.querySelector('.lesson-skip-btn');
+    skipBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (skipBtn.dataset.skip === 'ask') requestSkip(lesson.id);
+    });
     card.addEventListener('click', () => startLesson(lesson.id));
     els.lessonListLearner.appendChild(card);
+  });
+}
+
+function requestSkip(lessonId) {
+  Storage.setSkipRequest(lessonId, 'pending');
+  renderLearnerDashboard();
+  alert('Skip request sent! Ask your parent to approve it.');
+}
+
+function renderSkipRequests() {
+  const pending = Storage.getPendingSkipRequests();
+  els.skipRequestsSection.classList.toggle('hidden', pending.length === 0);
+  els.skipRequestsList.innerHTML = '';
+  pending.forEach(lesson => {
+    const item = document.createElement('div');
+    item.className = 'skip-request-item';
+    item.innerHTML =
+      '<div class="skip-request-info">' +
+      '<div class="skip-request-name">' + esc(lesson.name) + '</div>' +
+      '<div class="skip-request-desc">Skip Guided + Free, go to \u542C\u5199</div>' +
+      '</div>' +
+      '<div class="skip-request-actions">' +
+      '<button class="btn-approve">Approve</button>' +
+      '<button class="btn-deny">Deny</button>' +
+      '</div>';
+    item.querySelector('.btn-approve').addEventListener('click', () => {
+      Storage.setSkipRequest(lesson.id, 'approved');
+      renderParentDashboard();
+    });
+    item.querySelector('.btn-deny').addEventListener('click', () => {
+      Storage.setSkipRequest(lesson.id, null);
+      renderParentDashboard();
+    });
+    els.skipRequestsList.appendChild(item);
   });
 }
 
@@ -398,62 +469,69 @@ function renderLearnerDashboard() {
 function renderStickerBook() {
   const owned = Storage.getStickerOwned();
   const ownedSet = new Set(owned);
-  const isParent = state.mode === 'parent';
   const unclaimedCount = Storage.getUnclaimedStickerCount();
+  const filter = state.stickerFilter;
 
   // Header
   let headerText = owned.length + ' / ' + STICKER_POOL_SIZE + ' collected';
-  if (isParent && owned.length > 0) {
-    headerText += ' \u00b7 ' + unclaimedCount + ' unclaimed';
-  }
+  if (owned.length > 0) headerText += ' \u00b7 ' + unclaimedCount + ' unclaimed';
   els.stickersHeader.textContent = headerText;
 
-  // Filter row only shown in parent mode
-  els.stickersFilter.classList.toggle('hidden', !isParent);
+  // Filter row visible for both modes
+  els.stickersFilter.classList.remove('hidden');
 
   const grid = els.stickersGrid;
   grid.innerHTML = '';
   const frag = document.createDocumentFragment();
 
-  if (isParent && state.stickerFilter === 'unclaimed') {
-    // Only show owned, unclaimed
-    const sortedOwned = owned.slice().sort((a, b) => a - b);
-    sortedOwned.forEach(id => {
-      if (!Storage.getStickerClaim(id)) frag.appendChild(makeStickerTile(id, true, false, isParent));
-    });
-    if (frag.childNodes.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.style.gridColumn = '1 / -1';
-      empty.textContent = 'No unclaimed stickers.';
-      frag.appendChild(empty);
-    }
-  } else {
-    // Full grid: locked + owned
+  if (filter === 'gallery') {
+    // Full grid: all 1..N tiles, locked or owned
     for (let i = 1; i <= STICKER_POOL_SIZE; i++) {
       const isOwned = ownedSet.has(i);
       const isClaimed = isOwned && !!Storage.getStickerClaim(i);
-      frag.appendChild(makeStickerTile(i, isOwned, isClaimed, isParent));
+      frag.appendChild(makeStickerTile(i, isOwned, isClaimed));
     }
+  } else if (filter === 'all') {
+    // Only owned, sorted by ID
+    const sortedOwned = owned.slice().sort((a, b) => a - b);
+    sortedOwned.forEach(id => {
+      const isClaimed = !!Storage.getStickerClaim(id);
+      frag.appendChild(makeStickerTile(id, true, isClaimed));
+    });
+    if (sortedOwned.length === 0) frag.appendChild(emptyMsg('No stickers earned yet.'));
+  } else if (filter === 'unclaimed') {
+    // Only owned-unclaimed
+    const sortedOwned = owned.slice().sort((a, b) => a - b);
+    let count = 0;
+    sortedOwned.forEach(id => {
+      if (!Storage.getStickerClaim(id)) {
+        frag.appendChild(makeStickerTile(id, true, false));
+        count++;
+      }
+    });
+    if (count === 0) frag.appendChild(emptyMsg('No unclaimed stickers.'));
   }
   grid.appendChild(frag);
 }
 
-function makeStickerTile(id, isOwned, isClaimed, isParent) {
+function emptyMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'empty-state';
+  div.style.gridColumn = '1 / -1';
+  div.textContent = text;
+  return div;
+}
+
+function makeStickerTile(id, isOwned, isClaimed) {
   const tile = document.createElement('div');
   if (isOwned) {
-    let cls = 'sticker-tile owned';
-    if (isParent) {
-      cls += ' tappable';
-      cls += isClaimed ? ' claimed' : ' unclaimed';
-    }
-    tile.className = cls;
+    tile.className = 'sticker-tile owned tappable' + (isClaimed ? ' claimed' : ' unclaimed');
     const img = document.createElement('img');
     img.loading = 'lazy';
     img.src = stickerUrl(id);
     img.alt = '';
     tile.appendChild(img);
-    if (isParent) tile.addEventListener('click', () => openStickerDetail(id));
+    tile.addEventListener('click', () => openStickerDetail(id));
   } else {
     tile.className = 'sticker-tile locked';
   }
@@ -462,6 +540,7 @@ function makeStickerTile(id, isOwned, isClaimed, isParent) {
 
 function setStickerFilter(filter) {
   state.stickerFilter = filter;
+  els.btnFilterGallery.classList.toggle('active', filter === 'gallery');
   els.btnFilterAll.classList.toggle('active', filter === 'all');
   els.btnFilterUnclaimed.classList.toggle('active', filter === 'unclaimed');
   renderStickerBook();
@@ -469,21 +548,28 @@ function setStickerFilter(filter) {
 
 function openStickerDetail(id) {
   state.stickerDetailId = id;
+  const isParent = state.mode === 'parent';
   els.stickerDetailImg.src = stickerUrl(id);
   const earned = Storage.getStickerEarnedDate(id);
   els.stickerDetailEarned.textContent = earned
     ? 'Earned: ' + new Date(earned).toLocaleString()
     : '';
   const claim = Storage.getStickerClaim(id);
+  // Comment textarea editable only for parent
+  els.stickerDetailComment.readOnly = !isParent;
   if (claim) {
     els.stickerDetailClaimStatus.textContent = 'Claimed: ' + new Date(claim.claimedAt).toLocaleString();
     els.stickerDetailComment.value = claim.comment || '';
+    // Show comment area only if there's content (learner) or always (parent)
+    els.stickerDetailComment.classList.toggle('hidden', !isParent && !claim.comment);
     els.btnStickerClaim.classList.add('hidden');
-    els.btnStickerUnclaim.classList.remove('hidden');
+    els.btnStickerUnclaim.classList.toggle('hidden', !isParent);
   } else {
     els.stickerDetailClaimStatus.textContent = 'Not yet claimed';
     els.stickerDetailComment.value = '';
-    els.btnStickerClaim.classList.remove('hidden');
+    // Learner: hide empty comment area; Parent: keep visible for typing
+    els.stickerDetailComment.classList.toggle('hidden', !isParent);
+    els.btnStickerClaim.classList.toggle('hidden', !isParent);
     els.btnStickerUnclaim.classList.add('hidden');
   }
   els.stickerDetailDialog.classList.remove('hidden');
@@ -522,6 +608,7 @@ function renderParentDashboard() {
   els.statStickers.textContent = Storage.getStickerCount();
   els.stickersCardParent.classList.toggle('has-unclaimed', unclaimed > 0);
   els.stickersCardParent.dataset.unclaimed = unclaimed;
+  renderSkipRequests();
   els.lessonListParent.innerHTML = '';
   els.noLessonsParent.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
@@ -1122,6 +1209,14 @@ async function startLesson(lessonId) {
     state.tingxieResults = {};
   }
   state.activeSectionId = null;
+
+  // Consume skip permission if approved — auto-mark guided & free as done
+  if (state.mode === 'learner' && Storage.getSkipRequest(lessonId) === 'approved') {
+    if (!state.completedSections.includes('guided')) state.completedSections.push('guided');
+    if (!state.completedSections.includes('free')) state.completedSections.push('free');
+    Storage.setSkipRequest(lessonId, null);
+    persistLessonProgress();
+  }
 
   // Fetch dict data for all unique characters
   const allChars = [...new Set(state.phrases.join('').split(''))].filter(c => CJK_REGEX.test(c));
