@@ -46,8 +46,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 /* === Learner Dashboard === */
 .learner-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}
-.balance-card{background:linear-gradient(135deg,#4CAF50,#66bb6a);color:#fff;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 12px rgba(76,175,80,.3)}
+.balance-row{display:flex;gap:12px}
+.balance-card{flex:1;background:linear-gradient(135deg,#4CAF50,#66bb6a);color:#fff;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 12px rgba(76,175,80,.3);cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.balance-card:active{transform:scale(.97)}
+.stickers-card{background:linear-gradient(135deg,#f5a623,#f7b955);box-shadow:0 4px 12px rgba(245,166,35,.3)}
 .balance-label{font-size:14px;opacity:.9;margin-bottom:4px}.balance-amount{font-size:36px;font-weight:700}
+
+/* === Sticker Book === */
+.stickers-container{padding:16px;display:flex;flex-direction:column;gap:12px}
+.stickers-header{font-size:18px;font-weight:600;color:#2c3e50;text-align:center;padding:8px}
+.stickers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.sticker-tile{aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#f5f0eb;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;position:relative}
+.sticker-tile.owned{background:#fff}
+.sticker-tile img{width:100%;height:100%;object-fit:contain}
+.sticker-tile.locked::after{content:"?";font-size:28px;font-weight:700;color:#c8c0b3}
+
+/* Sticker reveal on reward screen */
+.sticker-reveal{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px;padding:16px;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.08);animation:sticker-pop .5s cubic-bezier(.34,1.56,.64,1)}
+.sticker-reveal-label{font-size:16px;font-weight:600;color:#f5a623}
+.sticker-reveal-img{width:140px;height:140px;object-fit:contain}
+.sticker-reveal-progress{font-size:13px;color:#888}
+@keyframes sticker-pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
 .section-heading{font-size:16px;font-weight:600;color:#666;padding:0 4px}
 .lesson-list{display:flex;flex-direction:column;gap:10px}
 .empty-state{text-align:center;color:#999;padding:32px 16px;font-size:15px}

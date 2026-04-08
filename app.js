@@ -43,6 +43,9 @@ const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf]/;
 const CEDICT_URL = 'https://cdn.jsdelivr.net/gh/krmanik/cedict-json/v2/';
 const PHRASE_DELIM = /[,\uFF0C\s.\u3002\u3001;\uFF1B\n\r]+/;
 const SECTION_SCORES = { guided: 20, free: 20, tingxie: 40, bonus: 20 };
+const STICKER_POOL_SIZE = 1025;
+const STICKER_BASE_URL = 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/';
+function stickerUrl(id) { return STICKER_BASE_URL + id + '.png'; }
 
 // ============================================
 // STORAGE LAYER
@@ -59,7 +62,7 @@ const Storage = {
     return this._data;
   },
   _save() { try { localStorage.setItem(this._KEY, JSON.stringify(this._data)); } catch(e){} },
-  _default() { return { pin: '1357', lessons: [] }; },
+  _default() { return { pin: '1357', lessons: [], stickers: { owned: [], history: [] } }; },
   _migrate() {
     this._data.lessons.forEach(l => {
       if (l.characters && !l.phrases) {
@@ -68,6 +71,10 @@ const Storage = {
         this._save();
       }
     });
+    if (!this._data.stickers) {
+      this._data.stickers = { owned: [], history: [] };
+      this._save();
+    }
   },
   getPin() { return this._load().pin; },
   setPin(pin) { this._load().pin = pin; this._save(); },
@@ -132,6 +139,29 @@ const Storage = {
     const l = this.getLesson(lessonId); if (!l) return TV_REWARDS[TV_REWARDS.length - 1];
     return TV_REWARDS[Math.min(l.completions.length, TV_REWARDS.length - 1)];
   },
+  getStickerOwned() { return this._load().stickers.owned; },
+  getStickerCount() { return this._load().stickers.owned.length; },
+  hasSticker(id) { return this._load().stickers.owned.includes(id); },
+  awardRandomSticker(lessonId, compId) {
+    const data = this._load();
+    const ownedSet = new Set(data.stickers.owned);
+    let pickFrom;
+    if (ownedSet.size < STICKER_POOL_SIZE) {
+      // Random unowned
+      pickFrom = [];
+      for (let i = 1; i <= STICKER_POOL_SIZE; i++) if (!ownedSet.has(i)) pickFrom.push(i);
+    } else {
+      // Full collection — random duplicate
+      pickFrom = [];
+      for (let i = 1; i <= STICKER_POOL_SIZE; i++) pickFrom.push(i);
+    }
+    const id = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    const isNew = !ownedSet.has(id);
+    if (isNew) data.stickers.owned.push(id);
+    data.stickers.history.push({ id: id, lessonId: lessonId, compId: compId, date: Date.now() });
+    this._save();
+    return { id: id, isNew: isNew };
+  },
 };
 
 // ============================================
@@ -178,7 +208,10 @@ const els = {
   btnImportShowMore:$('btn-import-show-more'), btnImportMoreOptions:$('import-more-options'),
   btnImportCancel:$('btn-import-cancel'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
-  balanceAmount:$('balance-amount'), lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
+  balanceAmount:$('balance-amount'), stickersCard:$('stickers-card'), stickersAmount:$('stickers-amount'),
+  stickersHeader:$('stickers-header'), stickersGrid:$('stickers-grid'),
+  stickerReveal:$('sticker-reveal'), stickerRevealImg:$('sticker-reveal-img'), stickerRevealProgress:$('sticker-reveal-progress'),
+  lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
   lessonListParent:$('lesson-list-parent'), noLessonsParent:$('no-lessons-parent'),
   btnAddLesson:$('btn-add-lesson'), btnChangePin:$('btn-change-pin'),
@@ -234,6 +267,7 @@ function init() {
   checkUrlImport();
   els.btnBack.addEventListener('click', navBack);
   els.btnHome.addEventListener('click', goHome);
+  els.stickersCard.addEventListener('click', () => navigateTo('stickers', 'My Stickers'));
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
   els.btnPinCancel.addEventListener('click', navBack);
@@ -284,6 +318,7 @@ function navigateTo(screenId, title, opts) {
   if (screenId === 'learner') renderLearnerDashboard();
   if (screenId === 'parent') renderParentDashboard();
   if (screenId === 'section-menu') renderSectionMenu();
+  if (screenId === 'stickers') renderStickerBook();
 }
 function navBack() {
   if (state.navStack.length > 1) { state.navStack.pop(); const p = state.navStack[state.navStack.length-1]; navigateTo(p.screenId, p.title, {replace:true}); }
@@ -309,6 +344,7 @@ function submitPin() {
 // ============================================
 function renderLearnerDashboard() {
   els.balanceAmount.textContent = Storage.getUnclaimedBalance() + ' min';
+  els.stickersAmount.textContent = Storage.getStickerCount();
   const lessons = Storage.getLessons();
   els.lessonListLearner.innerHTML = '';
   els.noLessonsLearner.classList.toggle('hidden', lessons.length > 0);
@@ -324,6 +360,32 @@ function renderLearnerDashboard() {
     card.addEventListener('click', () => startLesson(lesson.id));
     els.lessonListLearner.appendChild(card);
   });
+}
+
+// ============================================
+// STICKER BOOK
+// ============================================
+function renderStickerBook() {
+  const owned = new Set(Storage.getStickerOwned());
+  els.stickersHeader.textContent = owned.size + ' / ' + STICKER_POOL_SIZE + ' collected';
+  const grid = els.stickersGrid;
+  grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (let i = 1; i <= STICKER_POOL_SIZE; i++) {
+    const tile = document.createElement('div');
+    if (owned.has(i)) {
+      tile.className = 'sticker-tile owned';
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.src = stickerUrl(i);
+      img.alt = '';
+      tile.appendChild(img);
+    } else {
+      tile.className = 'sticker-tile locked';
+    }
+    frag.appendChild(tile);
+  }
+  grid.appendChild(frag);
 }
 
 // ============================================
@@ -546,7 +608,12 @@ function dateStr() {
 }
 
 function buildExportPayload() {
-  return { lessons: Storage.getLessons(), exportedAt: Date.now(), version: 2 };
+  return {
+    lessons: Storage.getLessons(),
+    stickers: Storage._load().stickers,
+    exportedAt: Date.now(),
+    version: 3,
+  };
 }
 
 function downloadBlob(blob, filename) {
@@ -665,6 +732,12 @@ function replaceImportedData(data) {
   if (!data || !Array.isArray(data.lessons)) throw new Error('Invalid payload: missing lessons array');
   const cur = Storage._load();
   cur.lessons = data.lessons;
+  if (data.stickers && Array.isArray(data.stickers.owned)) {
+    cur.stickers = {
+      owned: data.stickers.owned.slice(),
+      history: Array.isArray(data.stickers.history) ? data.stickers.history.slice() : [],
+    };
+  }
   Storage._save();
   return { total: data.lessons.length };
 }
@@ -699,6 +772,24 @@ function mergeImportedData(data) {
       merged++;
     }
   });
+
+  // Merge stickers: union owned IDs, append new history entries
+  if (data.stickers) {
+    cur.stickers = cur.stickers || { owned: [], history: [] };
+    if (Array.isArray(data.stickers.owned)) {
+      const ownedSet = new Set(cur.stickers.owned);
+      data.stickers.owned.forEach(id => ownedSet.add(id));
+      cur.stickers.owned = Array.from(ownedSet).sort((a, b) => a - b);
+    }
+    if (Array.isArray(data.stickers.history)) {
+      const seen = new Set(cur.stickers.history.map(h => h.compId + ':' + h.id));
+      data.stickers.history.forEach(h => {
+        const key = h.compId + ':' + h.id;
+        if (!seen.has(key)) { cur.stickers.history.push(h); seen.add(key); }
+      });
+    }
+  }
+
   Storage._save();
   return { added: added, merged: merged };
 }
@@ -1378,10 +1469,13 @@ function showResults() {
   const cycle = lesson.completions.length;
   const tvEarned = TV_REWARDS[Math.min(cycle, TV_REWARDS.length - 1)];
 
-  Storage.addCompletion(state.currentLessonId, {
+  const comp = Storage.addCompletion(state.currentLessonId, {
     cycle: cycle + 1, score: total, maxScore: 100,
     tvEarned: tvEarned, claimed: false,
   });
+
+  // Award a sticker for this completion
+  const sticker = Storage.awardRandomSticker(state.currentLessonId, comp.id);
 
   // Lesson fully complete — clear in-progress state
   Storage.clearLessonProgress(state.currentLessonId);
@@ -1393,6 +1487,14 @@ function showResults() {
     ' \u00b7 \u542C\u5199: ' + state.sectionScores.tingxie + ' \u00b7 Bonus: ' + state.sectionScores.bonus + '</div>';
   els.tvTimeDisplay.textContent = 'You earned ' + tvEarned + ' minutes!';
   els.tvTimeTotal.textContent = 'Balance: ' + balance + ' minutes';
+
+  // Sticker reveal
+  els.stickerReveal.classList.remove('hidden');
+  els.stickerReveal.querySelector('.sticker-reveal-label').textContent =
+    sticker.isNew ? 'New sticker unlocked!' : 'Bonus sticker!';
+  els.stickerRevealImg.src = stickerUrl(sticker.id);
+  els.stickerRevealProgress.textContent =
+    Storage.getStickerCount() + ' / ' + STICKER_POOL_SIZE + ' collected';
 
   destroyWriters();
   navigateTo('reward', 'Lesson Complete!');
