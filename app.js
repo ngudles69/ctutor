@@ -61,7 +61,7 @@ const Storage = {
     return this._data;
   },
   _save() { try { localStorage.setItem(this._KEY, JSON.stringify(this._data)); } catch(e){} },
-  _default() { return { pin: '1357', lessons: [], stickers: { owned: [], history: [] } }; },
+  _default() { return { pin: '1357', lessons: [], stickers: { owned: [], history: [], claims: {} } }; },
   _migrate() {
     this._data.lessons.forEach(l => {
       if (l.characters && !l.phrases) {
@@ -71,7 +71,11 @@ const Storage = {
       }
     });
     if (!this._data.stickers) {
-      this._data.stickers = { owned: [], history: [] };
+      this._data.stickers = { owned: [], history: [], claims: {} };
+      this._save();
+    }
+    if (!this._data.stickers.claims) {
+      this._data.stickers.claims = {};
       this._save();
     }
   },
@@ -126,6 +130,30 @@ const Storage = {
   getStickerOwned() { return this._load().stickers.owned; },
   getStickerCount() { return this._load().stickers.owned.length; },
   hasSticker(id) { return this._load().stickers.owned.includes(id); },
+  getStickerClaim(id) { return this._load().stickers.claims[id] || null; },
+  getUnclaimedStickerCount() {
+    const s = this._load().stickers;
+    return s.owned.filter(id => !s.claims[id]).length;
+  },
+  getStickerEarnedDate(id) {
+    const h = this._load().stickers.history;
+    for (let i = 0; i < h.length; i++) if (h[i].id === id) return h[i].date;
+    return null;
+  },
+  claimSticker(id, comment) {
+    const s = this._load().stickers;
+    s.claims[id] = { claimedAt: Date.now(), comment: comment || '' };
+    this._save();
+  },
+  unclaimSticker(id) {
+    const s = this._load().stickers;
+    delete s.claims[id];
+    this._save();
+  },
+  setStickerClaimComment(id, comment) {
+    const s = this._load().stickers;
+    if (s.claims[id]) { s.claims[id].comment = comment; this._save(); }
+  },
   awardRandomSticker(lessonId, compId) {
     const data = this._load();
     const ownedSet = new Set(data.stickers.owned);
@@ -177,6 +205,9 @@ const state = {
   // Edit
   editingLessonId: null,
   navStack: [],
+  // Stickers
+  stickerFilter: 'all',
+  stickerDetailId: null,
 };
 
 // ============================================
@@ -194,6 +225,12 @@ const els = {
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
   stickersCard:$('stickers-card'), stickersCardParent:$('stickers-card-parent'), stickersAmount:$('stickers-amount'),
   stickersHeader:$('stickers-header'), stickersGrid:$('stickers-grid'),
+  stickersFilter:$('stickers-filter'), btnFilterAll:$('btn-filter-all'), btnFilterUnclaimed:$('btn-filter-unclaimed'),
+  stickerDetailDialog:$('sticker-detail-dialog'), stickerDetailImg:$('sticker-detail-img'),
+  stickerDetailEarned:$('sticker-detail-earned'), stickerDetailClaimStatus:$('sticker-detail-claim-status'),
+  stickerDetailComment:$('sticker-detail-comment'),
+  btnStickerClaim:$('btn-sticker-claim'), btnStickerUnclaim:$('btn-sticker-unclaim'),
+  btnStickerDetailClose:$('btn-sticker-detail-close'),
   stickerReveal:$('sticker-reveal'), stickerRevealImg:$('sticker-reveal-img'), stickerRevealProgress:$('sticker-reveal-progress'),
   lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
   statLessons:$('stat-lessons'), statCompletions:$('stat-completions'), statStickers:$('stat-stickers'),
@@ -253,6 +290,16 @@ function init() {
   els.btnHome.addEventListener('click', goHome);
   els.stickersCard.addEventListener('click', () => navigateTo('stickers', 'My Stickers'));
   els.stickersCardParent.addEventListener('click', () => navigateTo('stickers', 'Sticker Book'));
+  els.btnFilterAll.addEventListener('click', () => setStickerFilter('all'));
+  els.btnFilterUnclaimed.addEventListener('click', () => setStickerFilter('unclaimed'));
+  els.btnStickerClaim.addEventListener('click', confirmClaimSticker);
+  els.btnStickerUnclaim.addEventListener('click', confirmUnclaimSticker);
+  els.btnStickerDetailClose.addEventListener('click', closeStickerDetail);
+  els.stickerDetailComment.addEventListener('input', function() {
+    if (state.stickerDetailId != null && Storage.getStickerClaim(state.stickerDetailId)) {
+      Storage.setStickerClaimComment(state.stickerDetailId, this.value);
+    }
+  });
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
   els.btnPinCancel.addEventListener('click', navBack);
@@ -349,26 +396,118 @@ function renderLearnerDashboard() {
 // STICKER BOOK
 // ============================================
 function renderStickerBook() {
-  const owned = new Set(Storage.getStickerOwned());
-  els.stickersHeader.textContent = owned.size + ' / ' + STICKER_POOL_SIZE + ' collected';
+  const owned = Storage.getStickerOwned();
+  const ownedSet = new Set(owned);
+  const isParent = state.mode === 'parent';
+  const unclaimedCount = Storage.getUnclaimedStickerCount();
+
+  // Header
+  let headerText = owned.length + ' / ' + STICKER_POOL_SIZE + ' collected';
+  if (isParent && owned.length > 0) {
+    headerText += ' \u00b7 ' + unclaimedCount + ' unclaimed';
+  }
+  els.stickersHeader.textContent = headerText;
+
+  // Filter row only shown in parent mode
+  els.stickersFilter.classList.toggle('hidden', !isParent);
+
   const grid = els.stickersGrid;
   grid.innerHTML = '';
   const frag = document.createDocumentFragment();
-  for (let i = 1; i <= STICKER_POOL_SIZE; i++) {
-    const tile = document.createElement('div');
-    if (owned.has(i)) {
-      tile.className = 'sticker-tile owned';
-      const img = document.createElement('img');
-      img.loading = 'lazy';
-      img.src = stickerUrl(i);
-      img.alt = '';
-      tile.appendChild(img);
-    } else {
-      tile.className = 'sticker-tile locked';
+
+  if (isParent && state.stickerFilter === 'unclaimed') {
+    // Only show owned, unclaimed
+    const sortedOwned = owned.slice().sort((a, b) => a - b);
+    sortedOwned.forEach(id => {
+      if (!Storage.getStickerClaim(id)) frag.appendChild(makeStickerTile(id, true, false, isParent));
+    });
+    if (frag.childNodes.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.style.gridColumn = '1 / -1';
+      empty.textContent = 'No unclaimed stickers.';
+      frag.appendChild(empty);
     }
-    frag.appendChild(tile);
+  } else {
+    // Full grid: locked + owned
+    for (let i = 1; i <= STICKER_POOL_SIZE; i++) {
+      const isOwned = ownedSet.has(i);
+      const isClaimed = isOwned && !!Storage.getStickerClaim(i);
+      frag.appendChild(makeStickerTile(i, isOwned, isClaimed, isParent));
+    }
   }
   grid.appendChild(frag);
+}
+
+function makeStickerTile(id, isOwned, isClaimed, isParent) {
+  const tile = document.createElement('div');
+  if (isOwned) {
+    let cls = 'sticker-tile owned';
+    if (isParent) {
+      cls += ' tappable';
+      cls += isClaimed ? ' claimed' : ' unclaimed';
+    }
+    tile.className = cls;
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src = stickerUrl(id);
+    img.alt = '';
+    tile.appendChild(img);
+    if (isParent) tile.addEventListener('click', () => openStickerDetail(id));
+  } else {
+    tile.className = 'sticker-tile locked';
+  }
+  return tile;
+}
+
+function setStickerFilter(filter) {
+  state.stickerFilter = filter;
+  els.btnFilterAll.classList.toggle('active', filter === 'all');
+  els.btnFilterUnclaimed.classList.toggle('active', filter === 'unclaimed');
+  renderStickerBook();
+}
+
+function openStickerDetail(id) {
+  state.stickerDetailId = id;
+  els.stickerDetailImg.src = stickerUrl(id);
+  const earned = Storage.getStickerEarnedDate(id);
+  els.stickerDetailEarned.textContent = earned
+    ? 'Earned: ' + new Date(earned).toLocaleString()
+    : '';
+  const claim = Storage.getStickerClaim(id);
+  if (claim) {
+    els.stickerDetailClaimStatus.textContent = 'Claimed: ' + new Date(claim.claimedAt).toLocaleString();
+    els.stickerDetailComment.value = claim.comment || '';
+    els.btnStickerClaim.classList.add('hidden');
+    els.btnStickerUnclaim.classList.remove('hidden');
+  } else {
+    els.stickerDetailClaimStatus.textContent = 'Not yet claimed';
+    els.stickerDetailComment.value = '';
+    els.btnStickerClaim.classList.remove('hidden');
+    els.btnStickerUnclaim.classList.add('hidden');
+  }
+  els.stickerDetailDialog.classList.remove('hidden');
+}
+
+function closeStickerDetail() {
+  els.stickerDetailDialog.classList.add('hidden');
+  state.stickerDetailId = null;
+}
+
+function confirmClaimSticker() {
+  if (state.stickerDetailId == null) return;
+  Storage.claimSticker(state.stickerDetailId, els.stickerDetailComment.value);
+  closeStickerDetail();
+  renderStickerBook();
+  if (state.mode === 'parent') renderParentDashboard();
+}
+
+function confirmUnclaimSticker() {
+  if (state.stickerDetailId == null) return;
+  Storage.unclaimSticker(state.stickerDetailId);
+  closeStickerDetail();
+  renderStickerBook();
+  if (state.mode === 'parent') renderParentDashboard();
 }
 
 // ============================================
@@ -377,9 +516,12 @@ function renderStickerBook() {
 function renderParentDashboard() {
   const lessons = Storage.getLessons();
   const totalCompletions = lessons.reduce((s, l) => s + l.completions.length, 0);
+  const unclaimed = Storage.getUnclaimedStickerCount();
   els.statLessons.textContent = lessons.length;
   els.statCompletions.textContent = totalCompletions;
   els.statStickers.textContent = Storage.getStickerCount();
+  els.stickersCardParent.classList.toggle('has-unclaimed', unclaimed > 0);
+  els.stickersCardParent.dataset.unclaimed = unclaimed;
   els.lessonListParent.innerHTML = '';
   els.noLessonsParent.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
@@ -712,6 +854,7 @@ function replaceImportedData(data) {
     cur.stickers = {
       owned: data.stickers.owned.slice(),
       history: Array.isArray(data.stickers.history) ? data.stickers.history.slice() : [],
+      claims: (data.stickers.claims && typeof data.stickers.claims === 'object') ? Object.assign({}, data.stickers.claims) : {},
     };
   }
   Storage._save();
@@ -749,9 +892,10 @@ function mergeImportedData(data) {
     }
   });
 
-  // Merge stickers: union owned IDs, append new history entries
+  // Merge stickers: union owned IDs, append new history entries, merge claims
   if (data.stickers) {
-    cur.stickers = cur.stickers || { owned: [], history: [] };
+    cur.stickers = cur.stickers || { owned: [], history: [], claims: {} };
+    if (!cur.stickers.claims) cur.stickers.claims = {};
     if (Array.isArray(data.stickers.owned)) {
       const ownedSet = new Set(cur.stickers.owned);
       data.stickers.owned.forEach(id => ownedSet.add(id));
@@ -762,6 +906,16 @@ function mergeImportedData(data) {
       data.stickers.history.forEach(h => {
         const key = h.compId + ':' + h.id;
         if (!seen.has(key)) { cur.stickers.history.push(h); seen.add(key); }
+      });
+    }
+    if (data.stickers.claims && typeof data.stickers.claims === 'object') {
+      Object.keys(data.stickers.claims).forEach(id => {
+        const remoteClaim = data.stickers.claims[id];
+        const localClaim = cur.stickers.claims[id];
+        // Keep the most recently claimed entry
+        if (!localClaim || (remoteClaim.claimedAt || 0) > (localClaim.claimedAt || 0)) {
+          cur.stickers.claims[id] = remoteClaim;
+        }
       });
     }
   }

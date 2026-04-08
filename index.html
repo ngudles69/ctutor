@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=35">
+  <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 
@@ -79,7 +79,27 @@
   <div id="screen-stickers" class="screen hidden">
     <div class="stickers-container">
       <div id="stickers-header" class="stickers-header">0 / 0 collected</div>
+      <div id="stickers-filter" class="stickers-filter hidden">
+        <button id="btn-filter-all" class="filter-btn active">All Owned</button>
+        <button id="btn-filter-unclaimed" class="filter-btn">Unclaimed</button>
+      </div>
       <div id="stickers-grid" class="stickers-grid"></div>
+    </div>
+  </div>
+
+  <!-- Sticker Detail Dialog (parent only) -->
+  <div id="sticker-detail-dialog" class="dialog hidden">
+    <div class="dialog-content sticker-detail-content">
+      <img id="sticker-detail-img" class="sticker-detail-img" alt="">
+      <div id="sticker-detail-earned" class="sticker-detail-meta"></div>
+      <div id="sticker-detail-claim-status" class="sticker-detail-meta"></div>
+      <label class="form-label" for="sticker-detail-comment">Comment</label>
+      <textarea id="sticker-detail-comment" class="sticker-detail-comment" placeholder="Add a note (e.g. reward given)..."></textarea>
+      <div class="form-buttons">
+        <button id="btn-sticker-claim" class="btn-primary">Mark as Claimed</button>
+        <button id="btn-sticker-unclaim" class="btn-danger hidden">Unclaim</button>
+      </div>
+      <button id="btn-sticker-detail-close" class="btn-link">Close</button>
     </div>
   </div>
 
@@ -274,6 +294,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=43"></script>
 </body>
 </html>

@@ -54,11 +54,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* === Sticker Book === */
 .stickers-container{padding:16px;display:flex;flex-direction:column;gap:12px}
 .stickers-header{font-size:18px;font-weight:600;color:#2c3e50;text-align:center;padding:8px}
+.stickers-filter{display:flex;gap:8px;justify-content:center}
+.filter-btn{padding:8px 16px;font-size:13px;font-weight:600;color:#888;background:#fff;border:1.5px solid #e0e0e0;border-radius:20px;cursor:pointer;touch-action:manipulation}
+.filter-btn.active{color:#fff;background:#f5a623;border-color:#f5a623}
 .stickers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
 .sticker-tile{aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#f5f0eb;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;position:relative}
 .sticker-tile.owned{background:#fff}
+.sticker-tile.tappable{cursor:pointer;touch-action:manipulation}
+.sticker-tile.tappable:active{transform:scale(.94)}
 .sticker-tile img{width:100%;height:100%;object-fit:contain}
 .sticker-tile.locked::after{content:"?";font-size:28px;font-weight:700;color:#c8c0b3}
+.sticker-tile.unclaimed::before{content:"";position:absolute;top:4px;right:4px;width:10px;height:10px;background:#e74c3c;border:2px solid #fff;border-radius:50%;z-index:1}
+.sticker-tile.claimed{opacity:.55}
+
+/* Sticker detail dialog */
+.sticker-detail-content{display:flex;flex-direction:column;align-items:stretch;gap:10px;max-width:320px}
+.sticker-detail-img{width:160px;height:160px;object-fit:contain;align-self:center}
+.sticker-detail-meta{font-size:13px;color:#666;text-align:center}
+.sticker-detail-comment{width:100%;min-height:60px;padding:10px;font-size:14px;border:1.5px solid #ddd;border-radius:10px;outline:none;font-family:inherit;resize:vertical}
+.sticker-detail-comment:focus{border-color:#f5a623}
 
 /* Sticker reveal on reward screen */
 .sticker-reveal{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px;padding:16px;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.08);animation:sticker-pop .5s cubic-bezier(.34,1.56,.64,1)}
@@ -88,8 +102,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .stat-item{flex:1;background:#fff;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05)}
 .stat-item-clickable{cursor:pointer;touch-action:manipulation;transition:transform .1s}
 .stat-item-clickable:active{transform:scale(.96)}
-#stickers-card-parent{background:linear-gradient(135deg,#f5a623,#f7b955)}
+#stickers-card-parent{background:linear-gradient(135deg,#f5a623,#f7b955);position:relative}
 #stickers-card-parent .stat-value,#stickers-card-parent .stat-label{color:#fff}
+#stickers-card-parent.has-unclaimed::after{content:attr(data-unclaimed);position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;background:#e74c3c;color:#fff;font-size:12px;font-weight:700;border-radius:11px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .stat-value{font-size:20px;font-weight:700;color:#2c3e50}.stat-label{font-size:11px;color:#888;margin-top:2px}
 .parent-actions{display:flex;align-items:center;gap:12px}.parent-actions .btn-primary{flex:1}
 .lesson-card-stats{display:flex;gap:12px;font-size:13px;color:#888}
