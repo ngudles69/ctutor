@@ -405,6 +405,9 @@ function submitPin() {
 // ============================================
 function renderLearnerDashboard() {
   els.stickersAmount.textContent = Storage.getStickerCount();
+  const unclaimed = Storage.getUnclaimedStickerCount();
+  els.stickersCard.classList.toggle('has-unclaimed', unclaimed > 0);
+  els.stickersCard.dataset.unclaimed = unclaimed;
   const lessons = Storage.getLessons();
   els.lessonListLearner.innerHTML = '';
   els.noLessonsLearner.classList.toggle('hidden', lessons.length > 0);
@@ -938,7 +941,7 @@ function buildExportPayload() {
     lessons: Storage.getLessons(),
     stickers: Storage._load().stickers,
     exportedAt: Date.now(),
-    version: 3,
+    version: 4,
   };
 }
 
@@ -1179,6 +1182,19 @@ function mergeLesson(local, remote) {
       local.skipRequest = remote.skipRequest;
     }
   }
+
+  // Practice attempts: union by timestamp (sort newest first after merge)
+  if (Array.isArray(remote.attempts) && remote.attempts.length > 0) {
+    local.attempts = local.attempts || [];
+    const seen = new Set(local.attempts.map(a => a.timestamp));
+    remote.attempts.forEach(a => {
+      if (a && a.timestamp && !seen.has(a.timestamp)) {
+        local.attempts.push(a);
+        seen.add(a.timestamp);
+      }
+    });
+    local.attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
 }
 
 function checkUrlImport() {
@@ -1353,12 +1369,13 @@ async function startLesson(lessonId) {
   }
   state.activeSectionId = null;
 
-  // Consume skip permission if approved — auto-mark guided & free as done
+  // Apply skip permission if approved — auto-mark guided & free as done.
+  // The permission stays active across restarts and is only consumed when
+  // the lesson is fully completed (see showResults).
   const skipReq = Storage.getSkipRequest(lessonId);
   if (state.mode === 'learner' && skipReq && skipReq.status === 'approved') {
     if (!state.completedSections.includes('guided')) state.completedSections.push('guided');
     if (!state.completedSections.includes('free')) state.completedSections.push('free');
-    Storage.setSkipRequest(lessonId, null);
     persistLessonProgress();
   }
 
@@ -1843,8 +1860,12 @@ function showResults() {
   // Award a sticker for this completion
   const sticker = Storage.awardRandomSticker(state.currentLessonId, comp.id);
 
-  // Lesson fully complete — clear in-progress state
+  // Lesson fully complete — clear in-progress state and consume any skip permission
   Storage.clearLessonProgress(state.currentLessonId);
+  const skipReq = Storage.getSkipRequest(state.currentLessonId);
+  if (skipReq && skipReq.status === 'approved') {
+    Storage.setSkipRequest(state.currentLessonId, null);
+  }
 
   els.scoreSummary.innerHTML =
     '<div class="score-big">' + total + ' / 100</div>' +
