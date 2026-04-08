@@ -44,7 +44,38 @@ const PHRASE_DELIM = /[,\uFF0C\s.\u3002\u3001;\uFF1B\n\r]+/;
 const SECTION_SCORES = { guided: 20, free: 20, tingxie: 40, bonus: 20 };
 const STICKER_POOL_SIZE = 1025;
 const STICKER_BASE_URL = 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/';
+const STICKER_SPECIES_URL = 'https://pokeapi.co/api/v2/pokemon-species/';
+const STICKER_NAMES_KEY = 'ctutor_sticker_names';
 function stickerUrl(id) { return STICKER_BASE_URL + id + '.png'; }
+
+let _stickerNamesCache = null;
+function getStickerNamesCache() {
+  if (_stickerNamesCache) return _stickerNamesCache;
+  try { _stickerNamesCache = JSON.parse(localStorage.getItem(STICKER_NAMES_KEY) || '{}'); }
+  catch (e) { _stickerNamesCache = {}; }
+  return _stickerNamesCache;
+}
+function saveStickerName(id, name) {
+  const cache = getStickerNamesCache();
+  cache[id] = name;
+  try { localStorage.setItem(STICKER_NAMES_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+async function fetchStickerName(id) {
+  const cache = getStickerNamesCache();
+  if (cache[id]) return cache[id];
+  try {
+    const res = await fetch(STICKER_SPECIES_URL + id + '/');
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    // Prefer English; fall back to species lowercase name
+    const en = (data.names || []).find(n => n.language && n.language.name === 'en');
+    const name = en ? en.name : (data.name || '');
+    if (name) saveStickerName(id, name);
+    return name;
+  } catch (e) {
+    return null;
+  }
+}
 
 // ============================================
 // STORAGE LAYER
@@ -247,6 +278,7 @@ const els = {
   stickersHeader:$('stickers-header'), stickersGrid:$('stickers-grid'),
   stickersFilter:$('stickers-filter'), btnFilterGallery:$('btn-filter-gallery'), btnFilterAll:$('btn-filter-all'), btnFilterUnclaimed:$('btn-filter-unclaimed'),
   stickerDetailDialog:$('sticker-detail-dialog'), stickerDetailImg:$('sticker-detail-img'),
+  stickerDetailName:$('sticker-detail-name'),
   stickerDetailEarned:$('sticker-detail-earned'), stickerDetailClaimStatus:$('sticker-detail-claim-status'),
   stickerDetailComment:$('sticker-detail-comment'),
   btnStickerClaim:$('btn-sticker-claim'), btnStickerUnclaim:$('btn-sticker-unclaim'),
@@ -674,6 +706,16 @@ function openStickerDetail(id) {
   state.stickerDetailId = id;
   const isParent = state.mode === 'parent';
   els.stickerDetailImg.src = stickerUrl(id);
+  // Name: show cached immediately if any, otherwise fetch
+  const cachedName = getStickerNamesCache()[id];
+  els.stickerDetailName.textContent = cachedName || '\u2026';
+  if (!cachedName) {
+    fetchStickerName(id).then(name => {
+      if (state.stickerDetailId === id && name) {
+        els.stickerDetailName.textContent = name;
+      }
+    });
+  }
   const earned = Storage.getStickerEarnedDate(id);
   els.stickerDetailEarned.textContent = earned
     ? 'Earned: ' + new Date(earned).toLocaleString()
