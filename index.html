@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=34">
+  <link rel="stylesheet" href="style.css?v=35">
 </head>
 <body>
 
@@ -63,15 +63,9 @@
   <!-- SCREEN: Learner Dashboard -->
   <div id="screen-learner" class="screen hidden">
     <div class="learner-dashboard">
-      <div class="balance-row">
-        <div id="balance-card" class="balance-card">
-          <div class="balance-label">TV / Games Time</div>
-          <div id="balance-amount" class="balance-amount">0 min</div>
-        </div>
-        <div id="stickers-card" class="balance-card stickers-card">
-          <div class="balance-label">My Stickers</div>
-          <div id="stickers-amount" class="balance-amount">0</div>
-        </div>
+      <div id="stickers-card" class="balance-card stickers-card">
+        <div class="balance-label">My Stickers</div>
+        <div id="stickers-amount" class="balance-amount">0</div>
       </div>
       <h3 class="section-heading">Your Lessons</h3>
       <div id="lesson-list-learner" class="lesson-list"></div>
@@ -94,8 +88,8 @@
     <div class="parent-dashboard">
       <div class="parent-stats">
         <div class="stat-item"><div id="stat-lessons" class="stat-value">0</div><div class="stat-label">Lessons</div></div>
-        <div class="stat-item"><div id="stat-unclaimed" class="stat-value">0 min</div><div class="stat-label">Unclaimed</div></div>
-        <div class="stat-item"><div id="stat-total" class="stat-value">0 min</div><div class="stat-label">Total Earned</div></div>
+        <div class="stat-item"><div id="stat-completions" class="stat-value">0</div><div class="stat-label">Completions</div></div>
+        <div id="stickers-card-parent" class="stat-item stat-item-clickable"><div id="stat-stickers" class="stat-value">0</div><div class="stat-label">Stickers</div></div>
       </div>
       <div class="parent-actions">
         <button id="btn-add-lesson" class="btn-primary">+ Add Lesson</button>
@@ -250,8 +244,6 @@
       <div id="confetti-container"></div>
       <h1>Lesson Complete!</h1>
       <div id="score-summary" class="score-summary"></div>
-      <div id="tv-time-display" class="tv-time"></div>
-      <div id="tv-time-total" class="tv-total"></div>
       <div id="sticker-reveal" class="sticker-reveal hidden">
         <div class="sticker-reveal-label"></div>
         <img id="sticker-reveal-img" class="sticker-reveal-img" alt="">
@@ -282,6 +274,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-  <script src="app.js?v=41"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>

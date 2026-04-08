@@ -46,10 +46,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 /* === Learner Dashboard === */
 .learner-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}
-.balance-row{display:flex;gap:12px}
-.balance-card{flex:1;background:linear-gradient(135deg,#4CAF50,#66bb6a);color:#fff;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 12px rgba(76,175,80,.3);cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.balance-card{background:linear-gradient(135deg,#f5a623,#f7b955);color:#fff;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 12px rgba(245,166,35,.3);cursor:pointer;touch-action:manipulation;transition:transform .1s}
 .balance-card:active{transform:scale(.97)}
-.stickers-card{background:linear-gradient(135deg,#f5a623,#f7b955);box-shadow:0 4px 12px rgba(245,166,35,.3)}
+.stickers-card{background:linear-gradient(135deg,#f5a623,#f7b955)}
 .balance-label{font-size:14px;opacity:.9;margin-bottom:4px}.balance-amount{font-size:36px;font-weight:700}
 
 /* === Sticker Book === */
@@ -87,6 +86,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .parent-dashboard{padding:16px;display:flex;flex-direction:column;gap:16px}
 .parent-stats{display:flex;gap:8px}
 .stat-item{flex:1;background:#fff;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+.stat-item-clickable{cursor:pointer;touch-action:manipulation;transition:transform .1s}
+.stat-item-clickable:active{transform:scale(.96)}
+#stickers-card-parent{background:linear-gradient(135deg,#f5a623,#f7b955)}
+#stickers-card-parent .stat-value,#stickers-card-parent .stat-label{color:#fff}
 .stat-value{font-size:20px;font-weight:700;color:#2c3e50}.stat-label{font-size:11px;color:#888;margin-top:2px}
 .parent-actions{display:flex;align-items:center;gap:12px}.parent-actions .btn-primary{flex:1}
 .lesson-card-stats{display:flex;gap:12px;font-size:13px;color:#888}
@@ -118,10 +121,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .attempt-stats .ok{color:#4CAF50;font-weight:600}
 .completion-info{display:flex;flex-direction:column;gap:2px}
 .completion-date{font-size:14px;font-weight:500;color:#333}.completion-detail{font-size:12px;color:#888}
-.completion-reward{display:flex;align-items:center;gap:8px}
-.reward-amount{font-size:16px;font-weight:600;color:#4CAF50;white-space:nowrap}
-.claim-checkbox{width:24px;height:24px;accent-color:#4CAF50;cursor:pointer}
-.completion-item.claimed{opacity:.6}.completion-item.claimed .reward-amount{text-decoration:line-through;color:#999}
 .review-actions{display:flex;gap:12px;margin-top:8px}.review-actions button{flex:1}
 
 /* === Section Menu === */
@@ -217,7 +216,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .reward-container h1{font-size:32px;color:#2c3e50}
 .score-summary{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center;font-size:15px;line-height:1.8}
 .score-big{font-size:36px;font-weight:700;color:#e67e22}
-.tv-time{font-size:24px;font-weight:700;color:#4CAF50}.tv-total{font-size:16px;color:#666}
 
 /* === Animations === */
 @keyframes flash{0%{opacity:1}100%{opacity:0}}

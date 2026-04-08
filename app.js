@@ -36,7 +36,6 @@ const REVISION_FREE_BASE = {
 // ============================================
 // CONSTANTS
 // ============================================
-const TV_REWARDS = [30, 20, 10];
 const MAX_PHRASES = 20;
 const MAX_MISTAKES_UNGUIDED = 2;
 const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf]/;
@@ -94,11 +93,6 @@ const Storage = {
     comp.id = 'c_' + Date.now(); comp.date = Date.now();
     l.completions.push(comp); this._save(); return comp;
   },
-  markClaimed(lessonId, compId, claimed) {
-    const l = this.getLesson(lessonId); if (!l) return;
-    const c = l.completions.find(x => x.id === compId);
-    if (c) { c.claimed = claimed; this._save(); }
-  },
   setCompletionNote(lessonId, compId, note) {
     const l = this.getLesson(lessonId); if (!l) return;
     const c = l.completions.find(x => x.id === compId);
@@ -128,16 +122,6 @@ const Storage = {
     const l = this.getLesson(lessonId); if (!l) return;
     delete l.attempts;
     this._save();
-  },
-  getUnclaimedBalance() {
-    return this.getLessons().reduce((s, l) => s + l.completions.filter(c => !c.claimed).reduce((a, c) => a + c.tvEarned, 0), 0);
-  },
-  getTotalEarned() {
-    return this.getLessons().reduce((s, l) => s + l.completions.reduce((a, c) => a + c.tvEarned, 0), 0);
-  },
-  getNextReward(lessonId) {
-    const l = this.getLesson(lessonId); if (!l) return TV_REWARDS[TV_REWARDS.length - 1];
-    return TV_REWARDS[Math.min(l.completions.length, TV_REWARDS.length - 1)];
   },
   getStickerOwned() { return this._load().stickers.owned; },
   getStickerCount() { return this._load().stickers.owned.length; },
@@ -208,11 +192,11 @@ const els = {
   btnImportShowMore:$('btn-import-show-more'), btnImportMoreOptions:$('import-more-options'),
   btnImportCancel:$('btn-import-cancel'),
   pinInput:$('pin-input'), pinError:$('pin-error'), btnPinSubmit:$('btn-pin-submit'), btnPinCancel:$('btn-pin-cancel'),
-  balanceAmount:$('balance-amount'), stickersCard:$('stickers-card'), stickersAmount:$('stickers-amount'),
+  stickersCard:$('stickers-card'), stickersCardParent:$('stickers-card-parent'), stickersAmount:$('stickers-amount'),
   stickersHeader:$('stickers-header'), stickersGrid:$('stickers-grid'),
   stickerReveal:$('sticker-reveal'), stickerRevealImg:$('sticker-reveal-img'), stickerRevealProgress:$('sticker-reveal-progress'),
   lessonListLearner:$('lesson-list-learner'), noLessonsLearner:$('no-lessons-learner'),
-  statLessons:$('stat-lessons'), statUnclaimed:$('stat-unclaimed'), statTotal:$('stat-total'),
+  statLessons:$('stat-lessons'), statCompletions:$('stat-completions'), statStickers:$('stat-stickers'),
   lessonListParent:$('lesson-list-parent'), noLessonsParent:$('no-lessons-parent'),
   btnAddLesson:$('btn-add-lesson'), btnChangePin:$('btn-change-pin'),
   lessonNameInput:$('lesson-name-input'), phraseInputsContainer:$('phrase-inputs-container'),
@@ -242,7 +226,7 @@ const els = {
   failDialog:$('fail-dialog'), btnRetryGuided:$('btn-retry-guided'), btnRetryFree:$('btn-retry-free'), btnFailSkip:$('btn-fail-skip'),
   successOverlay:$('success-overlay'),
   // Reward
-  scoreSummary:$('score-summary'), tvTimeDisplay:$('tv-time-display'), tvTimeTotal:$('tv-time-total'),
+  scoreSummary:$('score-summary'),
   confettiContainer:$('confetti-container'), btnBackToLessons:$('btn-back-to-lessons'),
 };
 
@@ -268,6 +252,7 @@ function init() {
   els.btnBack.addEventListener('click', navBack);
   els.btnHome.addEventListener('click', goHome);
   els.stickersCard.addEventListener('click', () => navigateTo('stickers', 'My Stickers'));
+  els.stickersCardParent.addEventListener('click', () => navigateTo('stickers', 'Sticker Book'));
   els.btnModeSwitch.addEventListener('click', handleModeSwitch);
   els.btnPinSubmit.addEventListener('click', submitPin);
   els.btnPinCancel.addEventListener('click', navBack);
@@ -343,20 +328,18 @@ function submitPin() {
 // LEARNER DASHBOARD
 // ============================================
 function renderLearnerDashboard() {
-  els.balanceAmount.textContent = Storage.getUnclaimedBalance() + ' min';
   els.stickersAmount.textContent = Storage.getStickerCount();
   const lessons = Storage.getLessons();
   els.lessonListLearner.innerHTML = '';
   els.noLessonsLearner.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
-    const next = Storage.getNextReward(lesson.id);
     const card = document.createElement('div'); card.className = 'lesson-card';
     card.innerHTML =
       '<div class="lesson-card-header"><div class="lesson-card-name">' + esc(lesson.name) + '</div>' +
       '<span class="lesson-card-badge ' + (lesson.completions.length ? 'badge-done' : 'badge-new') + '">' +
       (lesson.completions.length ? 'Done x' + lesson.completions.length : 'New') + '</span></div>' +
       '<div class="phrase-preview">' + lesson.phrases.map(p => '<span class="phrase-pill">' + esc(p) + '</span>').join('') + '</div>' +
-      '<div class="lesson-card-reward">Complete for ' + next + ' min TV time</div>';
+      '<div class="lesson-card-reward">Complete to earn a sticker!</div>';
     card.addEventListener('click', () => startLesson(lesson.id));
     els.lessonListLearner.appendChild(card);
   });
@@ -393,17 +376,16 @@ function renderStickerBook() {
 // ============================================
 function renderParentDashboard() {
   const lessons = Storage.getLessons();
+  const totalCompletions = lessons.reduce((s, l) => s + l.completions.length, 0);
   els.statLessons.textContent = lessons.length;
-  els.statUnclaimed.textContent = Storage.getUnclaimedBalance() + ' min';
-  els.statTotal.textContent = Storage.getTotalEarned() + ' min';
+  els.statCompletions.textContent = totalCompletions;
+  els.statStickers.textContent = Storage.getStickerCount();
   els.lessonListParent.innerHTML = '';
   els.noLessonsParent.classList.toggle('hidden', lessons.length > 0);
   lessons.forEach(lesson => {
-    const unclaimed = lesson.completions.filter(c => !c.claimed).length;
     const card = document.createElement('div'); card.className = 'lesson-card';
     card.innerHTML =
-      '<div class="lesson-card-header"><div class="lesson-card-name">' + esc(lesson.name) + '</div>' +
-      (unclaimed ? '<span class="lesson-card-badge badge-new">' + unclaimed + ' unclaimed</span>' : '') + '</div>' +
+      '<div class="lesson-card-header"><div class="lesson-card-name">' + esc(lesson.name) + '</div></div>' +
       '<div class="phrase-preview">' + lesson.phrases.map(p => '<span class="phrase-pill">' + esc(p) + '</span>').join('') + '</div>' +
       '<div class="lesson-card-stats"><span>Completed: ' + lesson.completions.length + ' times</span></div>';
     card.addEventListener('click', () => showLessonReview(lesson.id));
@@ -563,23 +545,17 @@ function renderLessonReview() {
   l.completions.forEach((comp) => {
     const d = new Date(comp.date);
     const item = document.createElement('div');
-    item.className = 'completion-item' + (comp.claimed ? ' claimed' : '');
+    item.className = 'completion-item';
     item.innerHTML =
       '<div class="completion-row">' +
       '<div class="completion-info"><div class="completion-date">' + d.toLocaleDateString() + '</div>' +
-      '<div class="completion-detail">Score: ' + (comp.score||0) + '/100 &middot; ' + comp.tvEarned + ' min TV</div></div>' +
-      '<div class="completion-reward"><span class="reward-amount">' + comp.tvEarned + ' min</span>' +
-      '<input type="checkbox" class="claim-checkbox" ' + (comp.claimed ? 'checked' : '') + '></div>' +
+      '<div class="completion-detail">Score: ' + (comp.score||0) + '/100</div></div>' +
       '</div>' +
       '<input type="text" class="completion-note-input" placeholder="Add a note...">';
     const noteInput = item.querySelector('.completion-note-input');
     noteInput.value = comp.note || '';
     noteInput.addEventListener('input', function() {
       Storage.setCompletionNote(state.currentLessonId, comp.id, this.value);
-    });
-    item.querySelector('.claim-checkbox').addEventListener('change', function() {
-      Storage.markClaimed(state.currentLessonId, comp.id, this.checked);
-      renderLessonReview();
     });
     els.reviewCompletions.appendChild(item);
   });
@@ -821,7 +797,7 @@ function mergeLesson(local, remote) {
     });
   }
 
-  // Completions: union by ID, OR-merge claims, prefer non-empty notes
+  // Completions: union by ID, prefer non-empty notes
   local.completions = local.completions || [];
   const compById = {};
   local.completions.forEach(c => { compById[c.id] = c; });
@@ -830,7 +806,6 @@ function mergeLesson(local, remote) {
     if (!lc) {
       local.completions.push(rc);
     } else {
-      lc.claimed = lc.claimed || rc.claimed;
       if (!lc.note && rc.note) lc.note = rc.note;
     }
   });
@@ -1467,11 +1442,9 @@ function showResults() {
   const total = calcTotalScore();
   const lesson = Storage.getLesson(state.currentLessonId);
   const cycle = lesson.completions.length;
-  const tvEarned = TV_REWARDS[Math.min(cycle, TV_REWARDS.length - 1)];
 
   const comp = Storage.addCompletion(state.currentLessonId, {
     cycle: cycle + 1, score: total, maxScore: 100,
-    tvEarned: tvEarned, claimed: false,
   });
 
   // Award a sticker for this completion
@@ -1480,13 +1453,10 @@ function showResults() {
   // Lesson fully complete — clear in-progress state
   Storage.clearLessonProgress(state.currentLessonId);
 
-  const balance = Storage.getUnclaimedBalance();
   els.scoreSummary.innerHTML =
     '<div class="score-big">' + total + ' / 100</div>' +
     '<div>Guided: ' + state.sectionScores.guided + ' \u00b7 Free: ' + state.sectionScores.free +
     ' \u00b7 \u542C\u5199: ' + state.sectionScores.tingxie + ' \u00b7 Bonus: ' + state.sectionScores.bonus + '</div>';
-  els.tvTimeDisplay.textContent = 'You earned ' + tvEarned + ' minutes!';
-  els.tvTimeTotal.textContent = 'Balance: ' + balance + ' minutes';
 
   // Sticker reveal
   els.stickerReveal.classList.remove('hidden');
