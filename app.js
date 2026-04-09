@@ -84,15 +84,37 @@ const Storage = {
   _data: null, _KEY: 'ctutor_data',
   _load() {
     if (this._data) return this._data;
+    let isFresh = false;
     try {
       const raw = localStorage.getItem(this._KEY);
-      this._data = raw ? JSON.parse(raw) : this._default();
+      if (raw) {
+        this._data = JSON.parse(raw);
+      } else {
+        this._data = this._default();
+        isFresh = true;
+      }
       this._migrate();
-    } catch (e) { this._data = this._default(); }
+    } catch (e) { this._data = this._default(); isFresh = true; }
+    // First-run seed: drop a tiny sample lesson so the learner dashboard
+    // isn't an empty state on a brand new device. Only when storage was
+    // truly empty — never overwrite existing user data.
+    if (isFresh && this._data.lessons.length === 0) {
+      this._seedSampleLesson();
+      this._save();
+    }
     return this._data;
   },
   _save() { try { localStorage.setItem(this._KEY, JSON.stringify(this._data)); } catch(e){} },
   _default() { return { pin: '1357', lessons: [], stickers: { owned: [], history: [], claims: {} } }; },
+  _seedSampleLesson() {
+    this._data.lessons.push({
+      id: 'l_sample_' + Date.now(),
+      name: 'Sample: Greetings',
+      phrases: ['\u65E9\u5B89', '\u4F60\u597D'],
+      createdAt: Date.now(),
+      completions: [],
+    });
+  },
   _migrate() {
     this._data.lessons.forEach(l => {
       if (l.characters && !l.phrases) {
