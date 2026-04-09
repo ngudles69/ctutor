@@ -241,6 +241,7 @@ const state = {
   roundNum: 1,
   guidedTotal: 3,
   isAnimating: false,
+  isAnimatingSince: 0,   // timestamp of last lockAnim — watchdog uses this
   charAttempts: 0,       // failed attempts on current char (for fail dialog)
   // Section menu scoring
   sectionScores: { guided: 0, free: 0, tingxie: 0, bonus: 0 },
@@ -315,6 +316,7 @@ const els = {
   btnRestart:$('btn-restart'), btnGuided:$('btn-guided'), btnAnimate:$('btn-animate'), btnSkip:$('btn-skip'),
   failDialog:$('fail-dialog'), btnRetryGuided:$('btn-retry-guided'), btnRetryFree:$('btn-retry-free'), btnFailSkip:$('btn-fail-skip'),
   successOverlay:$('success-overlay'),
+  netErrorDialog:$('net-error-dialog'), btnNetRetry:$('btn-net-retry'),
   // Reward
   scoreSummary:$('score-summary'),
   confettiContainer:$('confetti-container'), btnBackToLessons:$('btn-back-to-lessons'),
@@ -324,6 +326,16 @@ const els = {
 // INIT
 // ============================================
 function init() {
+  // Surface anything that used to vanish into setTimeout / async callbacks.
+  // Without these, a hung HanziWriter fetch or a thrown error inside a quiz
+  // callback was completely invisible — both to the user and to console
+  // inspection on a phone.
+  window.addEventListener('error', e => {
+    console.error('[unhandled error]', e.error || e.message, e.filename + ':' + e.lineno);
+  });
+  window.addEventListener('unhandledrejection', e => {
+    console.error('[unhandled rejection]', e.reason);
+  });
   els.btnEnterLearner.addEventListener('click', () => enterLearnerMode());
   els.btnEnterParent.addEventListener('click', () => showPinEntry('parent'));
   els.btnExportData.addEventListener('click', exportData);
@@ -380,6 +392,7 @@ function init() {
   els.btnRetryGuided.addEventListener('click', retryWithGuided);
   els.btnRetryFree.addEventListener('click', retryFree);
   els.btnFailSkip.addEventListener('click', () => { els.failDialog.classList.add('hidden'); skipCharacter(); });
+  els.btnNetRetry.addEventListener('click', retryAfterNetError);
   els.btnBackToLessons.addEventListener('click', () => navigateTo('learner', 'Lessons'));
   els.btnCompleteLesson.addEventListener('click', completeLesson);
   document.addEventListener('dblclick', e => e.preventDefault());
@@ -448,11 +461,21 @@ function renderLearnerDashboard() {
     const skipReq = lesson.skipRequest || null;
     let skipBtnHtml = '';
     if (skipReq && skipReq.status === 'approved') {
-      skipBtnHtml = '<button class="lesson-skip-btn approved" data-skip="approved">\u2728 Skip ready! Tap lesson to use</button>';
+      skipBtnHtml =
+        '<div class="lesson-skip-row">' +
+        '<button class="lesson-skip-btn approved" data-skip="approved">\u2728 Skip ready! Tap lesson to use</button>' +
+        '</div>';
     } else if (skipReq && skipReq.status === 'pending') {
-      skipBtnHtml = '<button class="lesson-skip-btn pending" data-skip="resend">Tap to resend skip request</button>';
+      skipBtnHtml =
+        '<div class="lesson-skip-row">' +
+        '<button class="lesson-skip-btn pending" data-skip="resend">Tap to resend skip request</button>' +
+        '</div>';
     } else {
-      skipBtnHtml = '<button class="lesson-skip-btn" data-skip="ask">Ask to skip to \u542C\u5199</button>';
+      skipBtnHtml =
+        '<div class="lesson-skip-row">' +
+        '<button class="lesson-skip-btn" data-skip="ask">Ask to skip to \u542C\u5199</button>' +
+        '<button class="lesson-skip-btn local" data-skip="ask-local">On this device</button>' +
+        '</div>';
     }
     card.innerHTML =
       '<div class="lesson-card-header"><div class="lesson-card-name">' + esc(lesson.name) + '</div>' +
@@ -461,36 +484,82 @@ function renderLearnerDashboard() {
       '<div class="phrase-preview">' + lesson.phrases.map(p => '<span class="phrase-pill">' + esc(p) + '</span>').join('') + '</div>' +
       '<div class="lesson-card-reward">Complete to earn a sticker!</div>' +
       skipBtnHtml;
-    const skipBtn = card.querySelector('.lesson-skip-btn');
-    skipBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      const action = skipBtn.dataset.skip;
-      if (action === 'ask' || action === 'resend') shareSkipRequest(lesson.id);
+    card.querySelectorAll('.lesson-skip-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const action = btn.dataset.skip;
+        if (action === 'ask' || action === 'resend') shareSkipRequest(lesson.id);
+        else if (action === 'ask-local') createLocalSkipRequest(lesson.id);
+      });
     });
     card.addEventListener('click', () => startLesson(lesson.id));
     els.lessonListLearner.appendChild(card);
   });
 }
 
-async function shareSkipRequest(lessonId) {
-  const lesson = Storage.getLesson(lessonId); if (!lesson) return;
-  // One active request per lesson. Reuse existing pending id; don't
-  // create a new one if already approved (consume it first).
+// Ensures a pending skipRequest exists on the lesson, returning the id and
+// timestamp. Returns null if the lesson is missing or already has an approved
+// skip (caller should treat that as a no-op + alert).
+function ensurePendingSkipRequest(lessonId) {
+  const lesson = Storage.getLesson(lessonId); if (!lesson) return null;
   const existing = lesson.skipRequest;
-  if (existing && existing.status === 'approved') {
+  if (existing && existing.status === 'approved') return { alreadyApproved: true };
+  if (existing && existing.status === 'pending') {
+    return { rid: existing.id, createdAt: existing.createdAt, isNew: false };
+  }
+  const rid = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const createdAt = Date.now();
+  Storage.setSkipRequest(lessonId, { id: rid, status: 'pending', createdAt: createdAt });
+  return { rid: rid, createdAt: createdAt, isNew: true };
+}
+
+// Mark an existing pending skipRequest as approved on this device. Returns
+// the updated request object, or null if there was nothing to approve.
+function markSkipApprovedLocally(lessonId) {
+  const lesson = Storage.getLesson(lessonId); if (!lesson) return null;
+  const req = lesson.skipRequest;
+  if (!req || !req.id) return null;
+  const updated = { id: req.id, status: 'approved', createdAt: req.createdAt, approvedAt: Date.now() };
+  Storage.setSkipRequest(lessonId, updated);
+  return updated;
+}
+
+// Local-only: create a pending skip request without invoking the share sheet.
+// For when parent + learner are using the same device — parent can switch
+// modes and approve right away.
+function createLocalSkipRequest(lessonId) {
+  const result = ensurePendingSkipRequest(lessonId);
+  if (!result) return;
+  if (result.alreadyApproved) {
     alert('You already have an approved skip for this lesson. Tap the lesson to use it.');
     return;
   }
-  let rid, createdAt;
-  if (existing && existing.status === 'pending') {
-    rid = existing.id;
-    createdAt = existing.createdAt;
+  renderLearnerDashboard();
+  if (result.isNew) {
+    alert('Skip request created on this device. Switch to Parent mode to approve.');
   } else {
-    rid = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    createdAt = Date.now();
-    Storage.setSkipRequest(lessonId, { id: rid, status: 'pending', createdAt: createdAt });
-    renderLearnerDashboard();
+    alert('Skip request is already pending. Switch to Parent mode to approve.');
   }
+}
+
+// Local-only: approve a pending skip request without invoking the share sheet.
+function approveSkipLocally(lessonId) {
+  const updated = markSkipApprovedLocally(lessonId);
+  if (!updated) { alert('No pending request to approve'); return; }
+  renderParentDashboard();
+}
+
+async function shareSkipRequest(lessonId) {
+  const lesson = Storage.getLesson(lessonId); if (!lesson) return;
+  const result = ensurePendingSkipRequest(lessonId);
+  if (!result) return;
+  if (result.alreadyApproved) {
+    alert('You already have an approved skip for this lesson. Tap the lesson to use it.');
+    return;
+  }
+  if (result.isNew) renderLearnerDashboard();
+  const rid = result.rid;
+  const createdAt = result.createdAt;
 
   const payload = { t: 'sr', rid: rid, lid: lessonId, ln: lesson.name, ph: lesson.phrases, at: createdAt };
   const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
@@ -510,14 +579,11 @@ async function shareSkipRequest(lessonId) {
 
 async function shareSkipApproval(lessonId) {
   const lesson = Storage.getLesson(lessonId); if (!lesson) return;
-  const req = lesson.skipRequest;
-  if (!req || !req.id) { alert('No pending request to approve'); return; }
-
-  // Mark approved locally so banner clears
-  Storage.setSkipRequest(lessonId, { id: req.id, status: 'approved', createdAt: req.createdAt, approvedAt: Date.now() });
+  const updated = markSkipApprovedLocally(lessonId);
+  if (!updated) { alert('No pending request to approve'); return; }
   renderParentDashboard();
 
-  const payload = { t: 'sa', rid: req.id, lid: lessonId, ln: lesson.name, ph: lesson.phrases, at: Date.now() };
+  const payload = { t: 'sa', rid: updated.id, lid: lessonId, ln: lesson.name, ph: lesson.phrases, at: updated.approvedAt };
   const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
   const url = location.origin + location.pathname + '?sa=' + encoded;
   const text = 'Chinese Tutor skip approved for "' + lesson.name + '": ' + url;
@@ -594,7 +660,8 @@ function renderSkipRequests() {
     const actionsHtml = isApproved
       ? '<button class="btn-resend">Resend</button>' +
         '<button class="btn-dismiss">Done</button>'
-      : '<button class="btn-approve">Approve</button>' +
+      : '<button class="btn-approve">Approve &amp; Share</button>' +
+        '<button class="btn-approve-local">Approve here</button>' +
         '<button class="btn-deny">Deny</button>';
     item.innerHTML =
       '<div class="skip-request-info">' +
@@ -610,6 +677,7 @@ function renderSkipRequests() {
       });
     } else {
       item.querySelector('.btn-approve').addEventListener('click', () => shareSkipApproval(lesson.id));
+      item.querySelector('.btn-approve-local').addEventListener('click', () => approveSkipLocally(lesson.id));
       item.querySelector('.btn-deny').addEventListener('click', () => {
         Storage.setSkipRequest(lesson.id, null);
         renderParentDashboard();
@@ -1424,6 +1492,11 @@ async function startLesson(lessonId) {
   // Fetch dict data for all unique characters
   const allChars = [...new Set(state.phrases.join('').split(''))].filter(c => CJK_REGEX.test(c));
   await fetchDictData(allChars);
+  // Warm the HanziWriter stroke-data cache for every char in this lesson.
+  // We don't await — the section menu is allowed to render while prefetch
+  // continues in the background, and the per-writer loader will dedupe
+  // against the in-flight Promise if the user races ahead.
+  prefetchCharData(allChars);
 
   const lesson2 = Storage.getLesson(lessonId);
   navigateTo('section-menu', lesson2.name);
@@ -1561,7 +1634,7 @@ function startPhrase() {
   state.roundNum = 1;
   state.guidedTotal = getActiveSection().rounds || 1;
   state.tingxieCharResults = [];
-  state.isAnimating = false;
+  unlockAnim();
 
   destroyWriters();
   renderPhraseWriters();
@@ -1591,6 +1664,8 @@ function renderPhraseWriters() {
     const writer = HanziWriter.create(wrapper, phrase[i], {
       width: 36, height: 36, padding: 2,
       strokeColor: '#333', outlineColor: '#ddd',
+      charDataLoader: hanziCharDataLoader,
+      onLoadCharDataError: handleCharDataError,
     });
     writer.showCharacter();
     writer.showOutline();
@@ -1638,6 +1713,8 @@ function revealTingxieChar(charIdx) {
   const writer = HanziWriter.create(box, char, {
     width: 40, height: 40, padding: 2,
     strokeColor: '#2c3e50', outlineColor: '#ddd',
+    charDataLoader: hanziCharDataLoader,
+    onLoadCharDataError: handleCharDataError,
   });
   writer.showCharacter();
   writer.showOutline();
@@ -1659,6 +1736,8 @@ function startCharacter() {
     else state.refWriter = HanziWriter.create(els.refWriterTarget, char, {
       width: 80, height: 80, padding: 5, strokeColor: '#333', outlineColor: '#ccc',
       strokeAnimationSpeed: 1, delayBetweenStrokes: 300,
+      charDataLoader: hanziCharDataLoader,
+      onLoadCharDataError: handleCharDataError,
     });
   } else {
     els.refArea.classList.add('hidden');
@@ -1684,6 +1763,8 @@ function createQuizWriter(char, showOutline) {
     showHintAfterMisses: showOutline ? 3 : false,
     highlightOnComplete: false,
     leniency: 2.5,
+    charDataLoader: hanziCharDataLoader,
+    onLoadCharDataError: handleCharDataError,
   });
 
   state.quizWriter.quiz({
@@ -1705,7 +1786,7 @@ function onMistake() {
 
 function onCharComplete(data) {
   if (state.isAnimating) return;
-  state.isAnimating = true;
+  lockAnim();
   const sec = getActiveSection();
   const isGuided = sec.showOutline && state.roundNum <= state.guidedTotal;
 
@@ -1726,19 +1807,19 @@ function onCharComplete(data) {
     state.charAttempts++;
     if (state.charAttempts >= 3) {
       // Auto-skip after 3 failed attempts
-      state.isAnimating = false;
+      unlockAnim();
       state.charAttempts = 0;
       advanceAfterChar();
       return;
     }
-    state.isAnimating = false;
+    unlockAnim();
     els.failDialog.classList.remove('hidden');
     return;
   }
 
   state.charAttempts = 0;
   showSuccessFlash(sec.perCharScoring ? '' : 'Nice!', () => {
-    state.isAnimating = false;
+    unlockAnim();
     advanceAfterChar();
   });
 }
@@ -1762,11 +1843,11 @@ function onRoundComplete() {
   }
 
   // Phrase just finished — celebrate with confetti + 1s pause
-  state.isAnimating = true;
+  lockAnim();
   launchConfetti(els.confettiContainer);
   const isMultiRoundSection = sec.id === 'guided' || sec.id.indexOf('revision-') === 0;
   setTimeout(() => {
-    state.isAnimating = false;
+    unlockAnim();
     if (isMultiRoundSection) {
       if (state.roundNum < state.guidedTotal) {
         state.roundNum++;
@@ -1854,8 +1935,8 @@ function restartCurrentTrace() {
 
 function showAnimation() {
   if (state.isAnimating || !state.refWriter) return;
-  state.isAnimating = true;
-  state.refWriter.animateCharacter({ onComplete: () => { state.isAnimating = false; } });
+  lockAnim();
+  state.refWriter.animateCharacter({ onComplete: () => { unlockAnim(); } });
 }
 
 // ============================================
@@ -1925,6 +2006,95 @@ function showResults() {
   destroyWriters();
   navigateTo('reward', 'Lesson Complete!');
   launchConfetti(els.confettiContainer);
+}
+
+// ============================================
+// HANZI WRITER CHAR DATA — cache, retry, prefetch
+// ============================================
+// HanziWriter normally fetches each character's stroke JSON from a CDN on
+// demand with no timeout, no retry, and no error surface. Any blip leaves the
+// quiz writer with no data, no callbacks, and the UI looks frozen. We replace
+// that with our own loader: cache in memory, retry with backoff, dedup
+// in-flight requests, and prefetch the whole lesson on startLesson.
+const HANZI_DATA_URL = 'https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/';
+const CHAR_DATA_TIMEOUT_MS = 8000;
+const CHAR_DATA_MAX_ATTEMPTS = 4;
+const charDataCache = {};        // char -> stroke data object
+const charDataPromises = {};     // char -> in-flight Promise (dedup)
+
+function fetchCharDataOnce(char) {
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), CHAR_DATA_TIMEOUT_MS) : null;
+  const opts = ctrl ? { signal: ctrl.signal, cache: 'force-cache' } : { cache: 'force-cache' };
+  return fetch(HANZI_DATA_URL + encodeURIComponent(char) + '.json', opts)
+    .then(r => {
+      if (timer) clearTimeout(timer);
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    })
+    .catch(e => {
+      if (timer) clearTimeout(timer);
+      throw e;
+    });
+}
+
+function loadCharData(char) {
+  if (charDataCache[char]) return Promise.resolve(charDataCache[char]);
+  if (charDataPromises[char]) return charDataPromises[char];
+
+  const attempt = (left, delay) => fetchCharDataOnce(char).then(data => {
+    charDataCache[char] = data;
+    delete charDataPromises[char];
+    return data;
+  }).catch(err => {
+    if (left > 1) {
+      return new Promise(r => setTimeout(r, delay))
+        .then(() => attempt(left - 1, Math.min(delay * 2, 4000)));
+    }
+    delete charDataPromises[char];
+    throw err;
+  });
+
+  charDataPromises[char] = attempt(CHAR_DATA_MAX_ATTEMPTS, 400);
+  return charDataPromises[char];
+}
+
+function prefetchCharData(chars) {
+  const unique = [...new Set(chars)].filter(c => CJK_REGEX.test(c));
+  return Promise.allSettled(unique.map(c => loadCharData(c).catch(() => null)));
+}
+
+// Loader passed to every HanziWriter.create — uses cache, retries, and only
+// surfaces an error to the writer (which fires onLoadCharDataError) after all
+// retries are exhausted.
+function hanziCharDataLoader(char, onComplete, onErr) {
+  loadCharData(char).then(data => onComplete(data)).catch(err => {
+    if (typeof onErr === 'function') onErr(err);
+    else onComplete(undefined);
+  });
+}
+
+// onLoadCharDataError fires from any HanziWriter once retries are exhausted.
+// We surface a single connection-error dialog with a retry button so the
+// learner is never staring at a frozen UI.
+function handleCharDataError(reason) {
+  console.warn('char data load failed:', reason);
+  if (els.netErrorDialog) els.netErrorDialog.classList.remove('hidden');
+  // Free the animation lock so the retry can re-enter onCharComplete.
+  unlockAnim();
+}
+
+function dismissNetError() {
+  if (els.netErrorDialog) els.netErrorDialog.classList.add('hidden');
+}
+
+function retryAfterNetError() {
+  dismissNetError();
+  // Re-enter the practice screen state from the current character. If we're
+  // not on the practice screen, just dismiss.
+  if (!state.activeSectionId) return;
+  destroyWriters();
+  startPhrase();
 }
 
 // ============================================
@@ -2028,6 +2198,21 @@ function destroyWriters() {
   els.quizWriterTarget.innerHTML=''; state.quizWriter=null;
   state.phraseWriters = [];
 }
+// Animation lock helpers — every assignment to state.isAnimating goes through
+// these so the watchdog has a consistent timestamp to compare against.
+const ANIM_LOCK_MAX_MS = 8000;
+function lockAnim() { state.isAnimating = true; state.isAnimatingSince = Date.now(); }
+function unlockAnim() { state.isAnimating = false; state.isAnimatingSince = 0; }
+// Periodic watchdog: a dropped setTimeout (e.g. tab paused on iOS) used to
+// leave isAnimating stuck true forever, freezing every subsequent callback.
+setInterval(() => {
+  if (state.isAnimating && state.isAnimatingSince &&
+      Date.now() - state.isAnimatingSince > ANIM_LOCK_MAX_MS) {
+    console.warn('[watchdog] force-clearing stuck isAnimating after',
+      Date.now() - state.isAnimatingSince, 'ms');
+    unlockAnim();
+  }
+}, 2000);
 function flashFeedback(color) {
   const o=els.feedbackOverlay; o.classList.remove('hidden','flash-red','flash-green');
   void o.offsetWidth; o.classList.add('flash-'+color);

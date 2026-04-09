@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Chinese Character Tutor</title>
-  <link rel="stylesheet" href="style.css?v=40">
+  <link rel="stylesheet" href="style.css?v=42">
 </head>
 <body>
 
@@ -262,6 +262,15 @@
     <div id="success-overlay" class="overlay hidden">
       <div class="overlay-text"></div>
     </div>
+
+    <!-- Connection error overlay (shown when char data fetch keeps failing) -->
+    <div id="net-error-dialog" class="dialog hidden">
+      <div class="dialog-content">
+        <p>Trouble loading characters.</p>
+        <p class="net-error-sub">Check your connection.</p>
+        <button id="btn-net-retry" class="btn-primary">Retry</button>
+      </div>
+    </div>
   </div>
 
   <!-- SCREEN: Reward / Results -->
@@ -300,6 +309,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-  <script src="app.js?v=49"></script>
+  <script src="app.js?v=51"></script>
 </body>
 </html>
